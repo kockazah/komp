@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Szövegértés kvíz - 4. osztály (15 kérdés)</title>
+<style>
+#quiz-container { display:flex; flex-direction:row; max-width:1200px; margin:auto; font-family:Arial,sans-serif; gap:0; }
+#quiz-container > div { padding:20px; }
+#quiz-container .left { width:40%; border-right:2px solid #ddd; max-height:80vh; overflow-y:auto; }
+#quiz-container .right { width:60%; display:flex; flex-direction:column; max-height:80vh; }
+#quiz-container .right .quiz-header { position: sticky; top:0; background-color:white; z-index:10; padding-bottom:10px; border-bottom:1px solid #ccc; }
+#quiz-container .right .quiz-questions { overflow-y:auto; flex-grow:1; position:relative; }
+#question-navigator { margin-bottom:10px; }
+#question-navigator .qn { display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; border-radius:50%; background-color:red; color:white; margin-right:5px; cursor:pointer; }
+#question-navigator .qn.answered { background-color:green; }
+.question { display:none; }
+.question.active { display:block; }
+.question-buttons { display:flex; justify-content:space-between; margin-top:10px; }
+#result { display:none; font-size:1.2em; color:blue; margin-top:20px; }
+#restartBtn { display:none; margin-top:10px; padding:10px 20px; }
+@media (max-width:768px) { #quiz-container { flex-direction:column; } #quiz-container .left,#quiz-container .right { width:100%; max-height:none; border-right:none; } }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left">
+    <h2>A téli tücsök meséi</h2> 
+<i>részlet</i><p>
+A téli tücsök szomorúan üldögélt az ablakpárkányon. Igazában nem is tudta,
+hogy mitől szomorú, úgy értem, hogy nem tudta volna pontosan megmondani,
+hogy mitől szomorú, csak szomorú volt, és nem volt semmihez kedve. Még az
+írógépet is kikerülte, annyira szomorú volt, mikor felugrott az ablakpárkányra,
+még az írógép billentyűjét lenyomni sem volt kedve.<p>
+Ült szemben a fehér világgal, a behavazott háztetőkkel, ágakkal, villanydróttal, csak ült szemben, és nagyokat sóhajtozott.<p>
+Nem tudott beletörődni, hogy téli tücsök lett, magányos téli tücsök. Mikor
+már eleget sóhajtozott, törni kezdte a fejét, hogy mit csináljon.<p>
+– Mit csináljak, hogy ne legyek szomorú? Mit is csináljak?<p>
+Ám a fehér, behavazott világ nem válaszolt neki semmit, csak hullt a hó, és
+még fehérebb lett minden.<p>
+– Mégis lenyomok egy billentyűt! – határozta el magát a téli tücsök. – Az is
+valami, ha ugrok egyet! Mint régen, mikor még egész nap ugrándoztam.<p>
+És a téli tücsök odament az írógéphez, s lenyomott egy billentyűt.<p>
+A billentyű lenyomódott, a kar rácsapódott a fehér papírra. A fehér papíron
+egy újabb jel volt, a téli tücsök felmászott az írógépre, és megnézte.<p>
+I – ez volt a fehér papíron.<p>
+A téli tücsök tűnődött, töprengett, hogy mire is emlékezteti őt ez a fura jel a
+fehér papíron.<p>
+Mire is? Mire is?<p>
+<img src="tucsok.jpg" width=100%><p>
+S aztán felderült az arca, a szomorúsága elmúlt, mintha elfújták volna, mert
+eszébe jutott, hogy mire is emlékezteti a fura jel a fehér papíron.<p>
+Hát persze! A délceg hőscincérre, mikor a fejére esett a makk!<p>
+Az egész úgy kezdődött, hogy a délceg hőscincér egyszer csak megjelent a
+szigeten. Senki se tudta, hogy miként került oda, egyszer csak ott állt a szigeten,
+megpödörte hatalmas bajszát, és fennhéjázva ezt mondta:<p>
+– Na! Szép kis sziget, mondhatom! Csupa gyáva nyúl meg gyáva egér meg
+gyáva tücsök! A többiről nem is beszélve!<p>
+A gyáva nyulak, a gyáva egerek, a gyáva tücskök meg a többiek, akikről nem is
+érdemes beszélni, ámulva állták körül a
+bajszát pödrő délceg hőscincért.<p>
+A délceg hőscincér megvetően körülnézett az ámulva bámuló társaságon, és
+fennhéjázó hangon tovább folytatta a szónoklatot:<p>
+– Na! Megkukultatok? Eh! De azért mégis elmondom, hogy ki vagyok, mivel itt fogok élni a szigeten, és azt akarom, hogy
+mindnyájan tisztában legyetek a hőstetteimmel, vagyis, hogy jól az agyatokba
+véssétek, és földig hajolva tiszteljetek!<p>
+Az ámulva bámuló gyáva nyulak, gyáva egerek, gyáva tücskök meg a többiek,
+akikről nem is érdemes beszélni, csupa
+fül voltak, ahogy mondani szokás, vagyis
+a lélegzetüket is visszafojtották, úgy figyeltek.<p>
+A délceg hőscincér elégedetten nézett
+rájuk, tetszett neki, hogy azok még a lélegzetüket is visszafojtják, úgy figyelnek.
+– Na, figyeljetek ide, ti világ gyávái!<p>
+A világ gyávái, ha lehet, még jobban figyeltek.<p>
+– Először is ott kezdem, hogy én vagyok a legbátrabb, legerősebb, legokosabb,
+legszebb, leggyorsabb, legügyesebb, legdélcegebb hőscincér! Eddig világos?
+A világ gyávái szaporán bólogattak, hogy eddig világos.<p>
+– Na, azért mondom, hogy ne kelljen magatoktól kitalálni, abba beletelne
+egy év is, amilyen buták vagytok! Másodszor: én idáig legyőztem mindenkit!
+Úgymint az oroszlánt, a medvét, a tigrist, a kőszáli sast, a héját, a leopárdot, a
+legharapósabb harapós kutyát, az óriáskígyót; van még több is, csak most nem
+jut az eszembe. De hogy ne gyötörjön benneteket a kíváncsiság, összefoglalom:
+én idáig mindenkit legyőztem! Ez is világos?<p>
+Az ámulva bámuló gyáva nyulak, gyáva egerek, gyáva tücskök és a többiek, akikről nem is érdemes beszélni, pislogva bólogattak, hogy ez is világos.
+A délceg hőscincér pödört egyet a bajuszán, és így folytatta:<p>
+– Na, most egypár szót külön a testi erőmről! Én olyan erős vagyok, hogy fél
+kézzel felemelem a legnehezebb követ is! Vagy: fél kézzel vizet préselek a legkeményebb kőből is! Vagy: fél kézzel kidöntöm a legnagyobb fát is! Vagy: fél
+kézzel csomót kötök a legnagyobb óriáskígyóra is! Ennyi elég mutatóba?<p>
+Az ámulva bámuló világ gyávái lelkesen bólogattak, hogy ennyi elég mutatóba!
+A délceg hőscincér megpödörte a bajuszát, és így folytatta:<p>
+– Na, most külön pár szót a gyorsaságomról! Én versenyfutásban lehagyom
+a leggyorsabb vadlovat! Én gyorsabban futok, mint a leopárd! Én gyorsabb
+vagyok, mint a vipera! Én a szélnek egy kilométer előnyt is adok, vagy annyit,
+amennyit akar, s mégis lehagyom! Ugye, csodálkoztok, fityfirittyek?
+Az ámulva bámuló fityfirittyek szájtátva csodálkoztak. A délceg hőscincérnek szemlátomást tetszett az ámulva bámuló társaság, mert pödört még egyet
+a bajuszán, és felemelte a hangját.
+– Na, most külön kell beszélnem a bátorságomról! Én olyan bátor vagyok, de
+olyan bátor vagyok…<p>
+Nem lehet tudni, hogy történhetett, de ekkor a fáról, amely alatt a bajuszát
+pödrő délceg hőscincér állt, mondom, a fáról lepottyant egy makk. Éspedig
+pontosan a délceg hőscincér fejére! Mindenkiben elállt a lélegzet, hogy jaj, most
+mi lesz!<p>
+Mi lett? Hát mi lett? Az lett, hogy a délceg hőscincér a fejéhez kapott, és sírva
+fakadt.<p>
+– Ki volt az? Ki dobott meg a makkal? – siránkozott a fejét tapogatva. – Segítség! Valaki megdobott makkal!<p>
+A gyáva nyulak, a gyáva egerek, a gyáva tücskök meg a többiek, akikről nem
+is érdemes beszélni, döbbenten nézték a siránkozó, fejét tapogató hőscincért.<p>
+Először a nádiveréb-fiókák kezdtek el nevetni, majd nevettek, hahotáztak a
+gyáva nyulak, a gyáva egerek, a gyáva tücskök és a többiek is, akikről nem is
+érdemes beszélni! Úgy nevettek, hogy a könnyük is potyogott.<p>
+A mókusok akkorát ugrottak nevetés közben a fa tetején, hogy majdnem leestek.
+Azután az egyik mókus lekiáltott a fáról, mikor már nem rázta annyira a
+nevetés.<p>
+– Hé, te világ legnagyobb szájú, leghencegőbb hőscincére! Dobd vissza a makkot! Az az enyém!<p>
+De a hőscincér csak siránkozott, és a fejét tapogatta. Az öreg hümmögő vakondok azután odament hozzá, megnézte a hőscincér fején a dudort, majd így szólt:<p>
+– Kutyabaj! Ebcsont beforr! És, ha itt akarsz élni a szigeten, maradj csak nyugodtan! Majd máskor is elszórakoztatsz bennünket a hőstetteiddel!<p>
+A hőscincér csak pislogott, majd rámosolygott a vakondokra, szent volt a béke.<p>
+A többiek is visszamosolyogtak a hőscincérre, és a hőscincér ott maradt a
+szigeten.<p>
+– A szigeten! – A téli tücsök sóhajtott egyet, lemászott a zöld heverőről, belebújt a terepszínű hátizsák bal zsebébe, és sokáig szagolgatta a gyengülő zsályaillatot, majd elaludt.<p>
+<i>Csukás István</i>
+
+  </div>
+  <div class="right">
+    <div class="quiz-header">
+      <h2>Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+    <button id="finishBtn" onclick="finishQuiz()" style="margin-top:10px; padding:10px 20px; display:none;">Lezárás</button>
+    <div id="result"></div>
+    <button id="restartBtn" onclick="restartQuiz()">Vissza</button>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+
+const quizData = [
+
+{question:"1. Miért volt szomorú a téli tücsök?", 
+options:["Mert éhes volt.",
+"Nem tudta pontosan, csak szomorú volt.",
+"Mert elveszett a hátizsákja.",
+"Mert eleredt az eső."], 
+correct:1},
+
+{question:"2. Hol üldögélt a téli tücsök a történet elején?",
+options:["A fa tetején",
+"A heverőn",
+"Az ablakpárkányon",
+"A padláson"],
+ correct:2},
+
+{question:"3. Mit került el a tücsök, mert olyan szomorú volt?",
+ options:["A könyveket",
+"Az írógépet",
+"A hátizsákját",
+"A barátait"],
+correct:1},
+
+{question:"4. Mit határozott el a tücsök, hogy javítson a kedvén?", 
+options:["Elmegy sétálni",
+"Lenyom egy billentyűt",
+"Elmegy aludni",
+"Elkezdi takarítani a szobát"], 
+correct:1},
+
+{question:"5. Milyen betű jelent meg a papíron?", 
+options:["T",
+"O",
+"H",
+"I"], 
+correct:3},
+
+{question:"6. Mire emlékeztette a tücsköt a megjelenő betű?", 
+options:["Egy faágra",
+"A hóesésre",
+"A hátizsákjára",
+"A délceg hőscincérre, amikor fejére esett a makk"],
+ correct:3},
+
+{question:"7. Hogyan viselkedett a délceg hőscincér, amikor megérkezett a szigetre?",
+ options:["Csendben maradt"
+,"Barátságosan köszönt",
+"Fennhéjázva dicsekedett",
+"Azonnal elaludt"],
+ correct:2},
+
+{question:"8. Kinek nevezte a sziget lakóit a hőscincér?",
+ options:["Bátor hősöknek",
+"Gyáváknak",
+"Udvarias vendégeknek",
+"Tanítványoknak"],
+ correct:1},
+
+{question:"9. Mit állított magáról a hőscincér?",
+ options:["Hogy ő a leglustább",
+"Hogy ő a legszomorúbb",
+"Hogy ő a legvidámabb",
+"Hogy ő a legbátrabb, legerősebb, legokosabb"], 
+correct:3},
+
+{question:"10. Mit mondott, mit tud fél kézzel megtenni?", 
+options:["Megfőzi az ebédet",
+"Hógolyót gyúr",
+"Felemeli a legnehezebb követ",
+"Elbújik egy levél alatt"],
+correct:2},
+
+{question:"11. Ki figyelt a hőscincérre ámulva?", 
+options:["Csak a tücskök",
+"A gyáva nyulak, egerek, tücskök és mások",
+"Csak a mókusok",
+"Csak a nádiveréb-fiókák"], 
+correct:1},
+
+{question:"12. Mi történt a hőscincérrel beszéd közben?", 
+options:["Elaludt",
+"A fejére esett egy makk",
+"Rátaposott valaki",
+"Lecsúszott egy levélről"],
+correct:1},
+
+{question:"13. Mit csinált a hőscincér, miután a makk a fejére esett?", 
+options:["Nevetett",
+"Futni kezdett",
+"Sírt és a fejét tapogatta",
+"Elrepült"],
+ correct:2},
+
+{question:"14. Ki kezdett először nevetni a hőscincéren?",
+ options:["A mókusok",
+"A vakond",
+"A nádiveréb-fiókák",
+"A tücsök"], 
+correct:2},
+
+{question:"15. Mit mondott neki a mókus a fáról?", 
+options:["„Gyere fel ide!”",
+"„Hős vagy!”",
+"„Dobd vissza a makkot, az az enyém!”",
+"„Menj innen!”"], 
+correct:2},
+
+{question:"16. Ki vizsgálta meg a hőscincér fejét?", 
+options:["A róka",
+"A tücsök",
+"Az öreg vakond",
+"A mókus"], 
+correct:2}
+,
+
+{question:"17. Mit mondott a vakond a sérülésről?", 
+options:["Nagyon komoly baj",
+"Kéz kell rá",
+"„Kutyabaj! Ebcsont beforr!”",
+"„Menj orvoshoz!”"], 
+correct:2},
+
+{question:"18. Mi történt a végén a hőscincérrel?", 
+options:["Elköltözött",
+"Elbújt",
+"Ott maradt a szigeten",
+"Hazarepült"], 
+correct:2},
+
+{question:"19. Mit csinált a téli tücsök a történet végén?", 
+options:["Énekelt",
+"Tovább írt",
+"Belebújt a hátizsák bal zsebébe",
+"Fát gyűjtött"], 
+correct:2},
+
+{question:"20. Milyen illatot szagolgatott elalvás előtt?", 
+options:["Fahéj",
+"Vanília",
+"Zsálya",
+"Gesztenye"], 
+correct:2}
+
+
+
+
+];
+
+const navDiv = document.getElementById("question-navigator");
+quizData.forEach((q,i)=>{
+  const span = document.createElement('span');
+  span.className='qn';
+  span.innerText=i+1;
+  span.addEventListener('click',()=> showQuestion(i));
+  navDiv.appendChild(span);
+});
+
+const quizDiv = document.getElementById("quiz");
+quizData.forEach((q,index)=>{
+  let html = `<div class='question' id='q${index}'><p><strong>${q.question}</strong></p>`;
+  q.options.forEach((opt,i)=>{
+    html+=`<label style='display:block;margin-left:10px;'><input type='radio' name='q${index}' value='${i}'> ${opt}</label>`;
+  });
+  html+=`<div class='question-buttons'><button class='prevBtn' onclick='prevQuestion()'>Előző</button><button class='nextBtn' onclick='nextQuestion()'>Következő</button></div>`;
+  html+="</div>";
+  quizDiv.innerHTML+=html;
+});
+
+let currentQuestion=0;
+document.querySelectorAll('.question').forEach((q,i)=>{
+  if(i===0) q.querySelector('.prevBtn').style.display='none';
+  if(i===quizData.length-1) q.querySelector('.nextBtn').style.display='none';
+});
+document.getElementById(`q${currentQuestion}`).classList.add('active');
+
+document.querySelectorAll('input[type=radio]').forEach((el)=>{
+  el.addEventListener('change',()=>{
+    const qNum = parseInt(el.name.replace('q',''));
+    document.querySelectorAll('#question-navigator .qn')[qNum].classList.add('answered');
+  });
+});
+
+window.showQuestion = function(n){
+  document.querySelectorAll('.question').forEach(q=>q.classList.remove('active'));
+  document.getElementById(`q${n}`).classList.add('active');
+  currentQuestion=n;
+  document.querySelectorAll('.prevBtn').forEach(b=>b.style.display='inline-block');
+  document.querySelectorAll('.nextBtn').forEach(b=>b.style.display='inline-block');
+  if(n===0) document.getElementById(`q${n}`).querySelector('.prevBtn').style.display='none';
+  if(n===quizData.length-1) document.getElementById(`q${n}`).querySelector('.nextBtn').style.display='none';
+  if(n===quizData.length-1){
+    document.getElementById("finishBtn").style.display="inline-block";
+  } else {
+    document.getElementById("finishBtn").style.display="none";
+  }
+}
+window.prevQuestion = function(){ if(currentQuestion>0) showQuestion(currentQuestion-1); }
+window.nextQuestion = function(){ if(currentQuestion<quizData.length-1) showQuestion(currentQuestion+1); }
+
+window.finishQuiz = function(){
+  let score=0;
+  quizData.forEach((q,index)=>{
+    const answer = document.querySelector(`input[name='q${index}']:checked`);
+    if(answer && Number(answer.value)===q.correct) score++;
+  });
+  document.querySelector('.quiz-questions').style.display="none";
+  document.getElementById("finishBtn").style.display="none";
+  document.querySelector('.quiz-header').style.display="none";
+  document.getElementById("result").style.display="block";
+  document.getElementById("result").innerText=`Eredményed: ${score} / ${quizData.length}`;
+  document.getElementById("restartBtn").style.display="inline-block";
+  document.querySelector('.left').style.display="none";
+}
+
+window.restartQuiz = function(){
+  document.querySelectorAll('input[type=radio]').forEach(el=>el.checked=false);
+  document.querySelectorAll('#question-navigator .qn').forEach(q=>q.classList.remove('answered'));
+  document.querySelector('.quiz-questions').style.display="block";
+  document.querySelector('.quiz-header').style.display="flex";
+  document.querySelector('.left').style.display="block";
+  document.getElementById("result").style.display="none";
+  document.getElementById("restartBtn").style.display="none";
+  currentQuestion=0;
+  showQuestion(0);
+}
+
+showQuestion(0);
+
+});
+</script>
+
+</body>
+</html>

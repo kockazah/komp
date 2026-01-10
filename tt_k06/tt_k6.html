@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Természettudomány – Kvíz</title>
+<style>
+body { font-family: Arial,sans-serif; margin:0; padding:0; }
+#quiz-container { display:flex; flex-direction:row; max-width:1200px; margin:auto; gap:0; }
+#quiz-container > div { padding:20px; }
+#quiz-container .left { width:50%; border-right:2px solid #ddd; max-height:80vh; overflow-y:auto; }
+#quiz-container .right { width:50%; display:flex; flex-direction:column; max-height:80vh; }
+#quiz-container .right .quiz-header { position: sticky; top:0; background-color:white; z-index:10; padding-bottom:10px; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; }
+#quiz-container .right .quiz-questions { overflow-y:auto; flex-grow:1; position:relative; }
+#question-navigator { margin-bottom:10px; display:flex; flex-wrap:wrap; }
+#question-navigator .qn { display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; border-radius:50%; background-color:red; color:white; margin-right:5px; margin-bottom:5px; cursor:pointer; }
+.question { display:none; }
+.question.active { display:block; }
+.question-buttons { display:flex; justify-content:space-between; margin-top:10px; }
+#finishBtn { margin-top:10px; padding:10px 20px; display:none; }
+#resultPage { display:none; padding:40px; text-align:center; }
+#left-panel img { width: 90%; height: auto; object-fit: contain; display:block; margin-top:10px; cursor:zoom-in; transition:0.2s; }
+#left-panel img:hover { opacity:0.8; }
+#image-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.3s ease; }
+#overlay-img { max-width: 90%; max-height: 90%; border-radius: 12px; box-shadow: 0 0 20px rgba(255,255,255,0.3); cursor: zoom-out; transform: scale(0.7); transition: transform 0.4s ease; }
+@media (max-width:768px) { #quiz-container { flex-direction:column; } #quiz-container .left,#quiz-container .right { width:100%; max-height:none; border-right:none; } }
+.dropdown-sentence {
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>Kvíz</h2>
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <h2>Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+    <button id="finishBtn">Lezárás</button>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultText"></h1>
+  <button id="restartBtn">Újrakezdés</button>
+</div>
+
+<div id="image-overlay">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+const quizData = [
+
+{
+  question: "1. Torricelli vízzel is elvégezte a kísérletet. Milyen hosszú csőre lett volna szüksége a higanyos csőhöz képest?",
+  type: "single",
+  options: ["Rövidebbre","Ugyanakkorára","Kicsit hosszabbra","Sokkal hosszabbra"],
+  correct: [3],
+  points:1,
+  leftText:"<p>Az 1600-as évek első feléig komoly vita folyt a tudósok között a vákuum létezéséről. Az arisztotelészi világkép alapján vákuum nem létezik. Ezt az elvet „horror vacui” (a természet irtózik a vákuumtól) névvel illették.<br>  Evangelista Torricelli 1643-ban végezte el híres kísérletét a vákuum létezésének bizonyítására. Körülbelül 1 méter hosszú, egyik végén zárt üvegcsövet megtöltött higannyal. A cső nyitott végét befogta, majd a nyitott végét higannyal részben megtöltött tálba fordította. Ezután elengedte a nyitott végét és azt tapasztalta, hogy a csőből kifolyt a higany egy része, de a nagyobb része benne maradt. Arra következtetett, hogy a csőben a  higany felett vákuum van. Ma már tudjuk, hogy a  cső üres részében nagyon alacsony (elhanyagolható) nyomású higanygőz van. Kísérletének „mellékterméke”, hogy megalkotta a higanyos barométert, illetve megmérte a légnyomást. A higany egésze azért nem folyik ki a csőből, mert a légnyomás benntartja. A higany olyan magasan áll a csőben, hogy hidrosztatikai nyomása egyenlő legyen a légnyomással. Minél magasabban áll meg a higany, annál nagyobb a légnyomás, és fordítva.<br><br></p>",
+  leftImage:"tt_k061.jpg"
+},
+
+{
+  question: "2. Miért nem folyik ki teljesen a higany a Torricelli-csőből?",
+  type: "single",
+  options: ["A higany tapad az üveg falához","A vákuum „felszívja” a higanyt","A légnyomás benntartja a higanyoszlopot","A higany sűrűsége túl nagy az áramláshoz"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Az 1600-as évek első feléig komoly vita folyt a tudósok között a vákuum létezéséről. Az arisztotelészi világkép alapján vákuum nem létezik. Ezt az elvet „horror vacui” (a természet irtózik a vákuumtól) névvel illették.<br>  Evangelista Torricelli 1643-ban végezte el híres kísérletét a vákuum létezésének bizonyítására. Körülbelül 1 méter hosszú, egyik végén zárt üvegcsövet megtöltött higannyal. A cső nyitott végét befogta, majd a nyitott végét higannyal részben megtöltött tálba fordította. Ezután elengedte a nyitott végét és azt tapasztalta, hogy a csőből kifolyt a higany egy része, de a nagyobb része benne maradt. Arra következtetett, hogy a csőben a  higany felett vákuum van. Ma már tudjuk, hogy a  cső üres részében nagyon alacsony (elhanyagolható) nyomású higanygőz van. Kísérletének „mellékterméke”, hogy megalkotta a higanyos barométert, illetve megmérte a légnyomást. A higany egésze azért nem folyik ki a csőből, mert a légnyomás benntartja. A higany olyan magasan áll a csőben, hogy hidrosztatikai nyomása egyenlő legyen a légnyomással. Minél magasabban áll meg a higany, annál nagyobb a légnyomás, és fordítva.<br><br></p>",
+  leftImage:"tt_k061.jpg"
+},
+
+{
+  question: "Az Alföldön 76 cm magas a higanyoszlop. A Kékestetőn elvégezve a kísérletet a higanyoszlop magassága várhatóan:",
+  type: "single",
+  options: ["magasabb lesz","alacsonyabb lesz","ugyanolyan magas marad","teljesen eltűnik a csőből"],
+  correct: [1],
+  points:1,
+  leftText:"<p>Az 1600-as évek első feléig komoly vita folyt a tudósok között a vákuum létezéséről. Az arisztotelészi világkép alapján vákuum nem létezik. Ezt az elvet „horror vacui” (a természet irtózik a vákuumtól) névvel illették.<br>  Evangelista Torricelli 1643-ban végezte el híres kísérletét a vákuum létezésének bizonyítására. Körülbelül 1 méter hosszú, egyik végén zárt üvegcsövet megtöltött higannyal. A cső nyitott végét befogta, majd a nyitott végét higannyal részben megtöltött tálba fordította. Ezután elengedte a nyitott végét és azt tapasztalta, hogy a csőből kifolyt a higany egy része, de a nagyobb része benne maradt. Arra következtetett, hogy a csőben a  higany felett vákuum van. Ma már tudjuk, hogy a  cső üres részében nagyon alacsony (elhanyagolható) nyomású higanygőz van. Kísérletének „mellékterméke”, hogy megalkotta a higanyos barométert, illetve megmérte a légnyomást. A higany egésze azért nem folyik ki a csőből, mert a légnyomás benntartja. A higany olyan magasan áll a csőben, hogy hidrosztatikai nyomása egyenlő legyen a légnyomással. Minél magasabban áll meg a higany, annál nagyobb a légnyomás, és fordítva.<br><br></p>",
+  leftImage:"tt_k061.jpg"
+},
+
+{
+  question: "4. Mi található valójában a higany felett a Torricelli-csőben?",
+  type: "single",
+  options: ["Tökéletes vákuum","Levegő normál nyomáson","Nagyon kis nyomású higanygőz","Oxigén és nitrogén keveréke"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Az 1600-as évek első feléig komoly vita folyt a tudósok között a vákuum létezéséről. Az arisztotelészi világkép alapján vákuum nem létezik. Ezt az elvet „horror vacui” (a természet irtózik a vákuumtól) névvel illették.<br>  Evangelista Torricelli 1643-ban végezte el híres kísérletét a vákuum létezésének bizonyítására. Körülbelül 1 méter hosszú, egyik végén zárt üvegcsövet megtöltött higannyal. A cső nyitott végét befogta, majd a nyitott végét higannyal részben megtöltött tálba fordította. Ezután elengedte a nyitott végét és azt tapasztalta, hogy a csőből kifolyt a higany egy része, de a nagyobb része benne maradt. Arra következtetett, hogy a csőben a  higany felett vákuum van. Ma már tudjuk, hogy a  cső üres részében nagyon alacsony (elhanyagolható) nyomású higanygőz van. Kísérletének „mellékterméke”, hogy megalkotta a higanyos barométert, illetve megmérte a légnyomást. A higany egésze azért nem folyik ki a csőből, mert a légnyomás benntartja. A higany olyan magasan áll a csőben, hogy hidrosztatikai nyomása egyenlő legyen a légnyomással. Minél magasabban áll meg a higany, annál nagyobb a légnyomás, és fordítva.<br><br></p>",
+  leftImage:"tt_k061.jpg"
+},
+
+{
+  question: "<p>A légzés automatikus folyamat. Tudjuk befolyásolni a sebességét, mértékét, de alapvetően nem figyelünk rá.<br><br>5. Miért áramlik a levegő belégzéskor a tüdőnkbe?</p>",
+  type: "single",
+  options: ["A levegő mindig a tüdő felé áramlik","A tüdő aktívan „felszívja” a levegőt","A mellkas térfogatnövekedése miatt csökken a tüdőben a nyomás","A levegő sűrűsége nő belégzéskor"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Az 1600-as évek első feléig komoly vita folyt a tudósok között a vákuum létezéséről. Az arisztotelészi világkép alapján vákuum nem létezik. Ezt az elvet „horror vacui” (a természet irtózik a vákuumtól) névvel illették.<br>  Evangelista Torricelli 1643-ban végezte el híres kísérletét a vákuum létezésének bizonyítására. Körülbelül 1 méter hosszú, egyik végén zárt üvegcsövet megtöltött higannyal. A cső nyitott végét befogta, majd a nyitott végét higannyal részben megtöltött tálba fordította. Ezután elengedte a nyitott végét és azt tapasztalta, hogy a csőből kifolyt a higany egy része, de a nagyobb része benne maradt. Arra következtetett, hogy a csőben a  higany felett vákuum van. Ma már tudjuk, hogy a  cső üres részében nagyon alacsony (elhanyagolható) nyomású higanygőz van. Kísérletének „mellékterméke”, hogy megalkotta a higanyos barométert, illetve megmérte a légnyomást. A higany egésze azért nem folyik ki a csőből, mert a légnyomás benntartja. A higany olyan magasan áll a csőben, hogy hidrosztatikai nyomása egyenlő legyen a légnyomással. Minél magasabban áll meg a higany, annál nagyobb a légnyomás, és fordítva.<br><br></p>",
+  leftImage:"tt_k061.jpg"
+},
+
+{
+  question: "<p>6. Mi a fizikai magyarázata annak, hogy szívószállal tudunk inni?</p>",
+  type: "single",
+  options: ["A folyadék magától felfelé áramlik","A szájban csökkentjük a nyomást, a légnyomás felnyomja a folyadékot","A szívószál falán tapad fel a folyadék","A folyadék sűrűsége csökken szíváskor"],
+  correct: [1],
+  points:1,
+  leftText:"<p>A szívószál és a légnyomás.<br><br></p>",
+  leftImage:"tt_k062.jpg"
+},
+
+{
+  question: "<p>7. A repülőgépek utazási magassága 11 kilométer. A magasság növekedésével körülbelül 5500 méterenként feleződik a légnyomás. <br><br>Milyen magasan állna a higany a Torricelli-csőben, ha ebben a magasságban végeznénk el a kísérletet? Tengerszinten 76 cm magasan áll.</p>",
+  type: "single",
+  options: ["76 cm","38 cm","19 cm","9,5 cm"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Az 1600-as évek első feléig komoly vita folyt a tudósok között a vákuum létezéséről. Az arisztotelészi világkép alapján vákuum nem létezik. Ezt az elvet „horror vacui” (a természet irtózik a vákuumtól) névvel illették.<br>  Evangelista Torricelli 1643-ban végezte el híres kísérletét a vákuum létezésének bizonyítására. Körülbelül 1 méter hosszú, egyik végén zárt üvegcsövet megtöltött higannyal. A cső nyitott végét befogta, majd a nyitott végét higannyal részben megtöltött tálba fordította. Ezután elengedte a nyitott végét és azt tapasztalta, hogy a csőből kifolyt a higany egy része, de a nagyobb része benne maradt. Arra következtetett, hogy a csőben a  higany felett vákuum van. Ma már tudjuk, hogy a  cső üres részében nagyon alacsony (elhanyagolható) nyomású higanygőz van. Kísérletének „mellékterméke”, hogy megalkotta a higanyos barométert, illetve megmérte a légnyomást. A higany egésze azért nem folyik ki a csőből, mert a légnyomás benntartja. A higany olyan magasan áll a csőben, hogy hidrosztatikai nyomása egyenlő legyen a légnyomással. Minél magasabban áll meg a higany, annál nagyobb a légnyomás, és fordítva.<br><br></p>",
+  leftImage:"tt_k061.jpg"
+},
+
+{
+  question: "<p>8. Miért nem lehet szívókúttal 9,5 méternél magasabbra felszívni a vizet?<br></p>",
+  type: "single",
+  options: ["A víz sűrűsége túl nagy","A cső fala nem elég erős","A légnyomás nem tud nagyobb vízoszlopot megtartani","A vákuum nem létezik"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Már Torricelli korában is ismerték, hogy szívókutak segítségével nagyjából 9,5 m magasságba tudjuk felemelni a vizet. Ezzel a módszerrel nem lehet az egri vár kazamatáiban található 30 méter mély kútból vizet vételezni.<br><br></p>",
+  leftImage:"tt_k063.jpg"
+},
+
+{
+  question: "<p>Tengerszinten meggyújtunk egy vékony, rövid gyertyát (tortagyertya). Lemérjük, hogy mennyi idő alatt ég le. A mért idő 12 perc. Megismételjük a kísérletet 3000 méter magasan egy hegycsúcson. <br><br> 9. Mennyi idő alatt ég le a gyertya?<br></p>",
+  type: "single",
+  options: ["rövidebb idő alatt ég le","hosszabb idő alatt ég le","ugyanannyi idő alatt ég le","nem ég le"],
+  correct: [1],
+  points:1,
+  leftText:"<p>Ismert, hogy a magasság változásával nemcsak a légnyomás változik, hanem a levegő sűrűsége is: <br> minél magasabbra megyünk, annál kisebb a  sűrűsége.<br><br></p>",
+  leftImage:"tt_k064.jpg"
+},
+
+{
+  question: "<p>Denver (USA) a tengerszint felett 1610 méter magasságban fekszik. A városnak van egy nagyon jó NFL-csapata (amerikai foci). Amikor a városban játszanak meccset, a tengerszintről érkező játékosok a pihenők alatt oxigénnel dúsított levegőt lélegeznek be.<br><br> 10. Mi lehet az oka?<br></p>",
+  type: "single",
+  options: ["A hideg levegő miatt","A kisebb légnyomás miatt kevesebb oxigén jut a vérbe","A levegő páratartalma alacsony","A mozgás intenzívebb"],
+  correct: [1],
+  points:1,
+  leftText:"<p>Ismert, hogy a magasság változásával nemcsak a légnyomás változik, hanem a levegő sűrűsége is: <br> minél magasabbra megyünk, annál kisebb a sűrűsége.<br><br></p>",
+  leftImage:"tt_k064.jpg"
+},
+
+{
+  question: "<p>A magaslati levegő szempontjából a  mexikói olimpia mindenképpen említésre érdemes. Mexikóváros 2250 méterrel a  tengerszint felett fekszik. Ezen a  magasságon a  levegő már jóval ritkább, mint a tengerszinten. Sokan ezzel magyarázták, hogy 100, 200 és 400 méteres síkfutásban is olyan világcsúcsok születtek, melyeket sok évig nem tudtak megdönteni. <br><br>11. Miért érhettek el a rövidtávfutók fantasztikus világcsúcsokat?<br></p>",
+  type: "single",
+  options: ["Mert a ritkább levegőben több oxigén jut a vérbe, így nagyobb az izomerő","Mert a kisebb légsűrűség miatt csökkent a légellenállás, ami kedvez a nagy sebességnek","Mert a magaslati levegő edzi az izmokat, ezért azok gyorsabban működnek","Mert a magasabb hőmérséklet miatt az izmok kevésbé fáradnak el"],
+  correct: [1],
+  points:1,
+  leftText:"<p>Ismert, hogy a magasság változásával nemcsak a légnyomás változik, hanem a levegő sűrűsége is: <br> minél magasabbra megyünk, annál kisebb a  sűrűsége.<br><br></p>",
+  leftImage:"tt_k065.jpg"
+},
+
+{
+  question: "<p>12. Miért volt lehetetlen megdönteni a 10 000 méteres síkfutás világcsúcsát?<br><br></p>",
+  type: "single",
+  options: ["Mert a pálya túl kemény volt a hosszútávfutáshoz","Mert a ritkább levegő miatt kisebb a légellenállás, ami hosszú távon hátrány","Mert a ritkább levegőben kevesebb oxigén jut a szervezetbe, ami rontja az állóképességet","Mert a magaslati levegő lassítja az izmok összehúzódását"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Ismert, hogy a magasság változásával nemcsak a légnyomás változik, hanem a levegő sűrűsége is: <br> minél magasabbra megyünk, annál kisebb a  sűrűsége.<br><br></p>",
+  leftImage:"tt_k065.jpg"
+},
+
+{
+  question: "<p>Miért dugul be a fülünk, ha hirtelen emelkedünk vagy ereszkedünk?<br><br></p>",
+  type: "single",
+  options: ["Mert a levegő sűrűsége hirtelen megváltozik a hallójáratban","Mert a dobhártya egyik oldalán gyorsabban változik a légnyomás, mint a másikon","Mert a fülben lévő levegő lehűl vagy felmelegszik","Mert a fülzsír elmozdul a hallójáratban"],
+  correct: [1],
+  points:1,
+  leftText:"<p>A légnyomás változása hatással van más szervünkre is, például a fülünkre.<br><br></p>",
+  leftImage:"tt_k066.jpg"
+},
+
+{
+  question: "<p>Említs legalább két példát erre a hétköznapi életből!</p>",
+  type: "multi",
+  options: ["Repülőgép felszállásakor vagy leszállásakor.","Gyalog felmenni egy hegyre vagy lesétálni róla.","Biciklizés sík terepen vagy enyhe lejtőn.","Gyors liftezéskor egy magas épületben vagy mélygarázsban."],
+  correct: [0,3],
+  points:2,
+  leftText:"<p>A légnyomás változása hatással van más szervünkre is, például a fülünkre.<br><br></p>",
+  leftImage:"tt_k066.jpg"
+},
+
+{
+  question: "<p>Miért nem dugul be a fülünk, amikor a hegyen mászunk felfelé vagy ereszkedünk lefelé?<br><br></p>",
+  type: "single",
+  options: ["Mert a hegyen tisztább a levegő","Mert a magasságváltozás lassú, így a fülkürt folyamatosan ki tudja egyenlíteni a nyomást","Mert a levegő sűrűsége nem változik a hegyen","Mert a dobhártya ilyenkor nem érzékeny a nyomásváltozásra"],
+  correct: [1],
+  points:1,
+  leftText:"<p>A légnyomás változása hatással van más szervünkre is, például a fülünkre.<br><br></p>",
+  leftImage:"tt_k067.jpg"}
+]
+let currentQuestion = 0;
+
+function initQuiz(){ buildNavigator(); buildQuestions(); showQuestion(0); }
+
+function buildNavigator(){
+  const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+  quizData.forEach((q,i)=>{
+    const span=document.createElement("span"); span.className="qn"; span.innerText=i+1;
+    span.onclick=()=>showQuestion(i);
+    nav.appendChild(span);
+  });
+}
+
+function buildQuestions(){
+  const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+  quizData.forEach((q,i)=>{
+    const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+    div.innerHTML=`<p><strong>${q.question||""}</strong></p>`;
+    div.appendChild(buildInputs(q,i));
+    div.appendChild(buildButtons(i));
+    quiz.appendChild(div);
+  });
+}
+
+function buildInputs(q,i){
+  const wrap=document.createElement("div");
+  if(q.type === "dropdown-multiple-sentences"){
+    let optIndex = 0;
+    const sentences = q.sentences;
+
+    sentences.forEach(sentence => {
+        const line = document.createElement("div");
+        line.className = "dropdown-sentence";
+
+        const words = sentence.text.split(" ");
+        words.forEach((word, wi) => {
+            if(sentence.blanks.includes(wi)){
+                const select = document.createElement("select");
+                select.dataset.optIndex = optIndex;
+                select.innerHTML = "<option value=''>Válassz...</option>";
+
+                q.options[optIndex].forEach((opt, oi) => {
+                    const optionElem = document.createElement("option");
+                    optionElem.value = oi;
+                    optionElem.textContent = opt;
+                    select.appendChild(optionElem);
+                });
+
+                select.onchange = () => updateStatus(i);
+
+                line.appendChild(select);
+                line.appendChild(document.createTextNode(" "));
+                optIndex++;
+
+            } else {
+                line.appendChild(document.createTextNode(word + " "));
+            }
+        });
+
+        wrap.appendChild(line);
+    });
+}
+else if(q.type==="dropdown"){
+    const select=document.createElement("select"); select.id=`sel${i}`;
+    select.innerHTML="<option value=''>Válassz...</option>";
+    q.options.forEach((opt,j)=>{ const op=document.createElement("option"); op.value=j; op.textContent=opt; select.appendChild(op); });
+    select.onchange=()=>updateStatus(i);
+    wrap.appendChild(select);
+  } else if(q.type==="single"){
+    q.options.forEach((opt,j)=>{
+      const label=document.createElement("label"); label.style.display="block";
+      label.innerHTML=`<input type="radio" name="q${i}" value="${j}"> ${opt}`;
+      label.querySelector("input").onchange=()=>updateStatus(i);
+      wrap.appendChild(label);
+    });
+  } else if(q.type==="multi"){
+    q.options.forEach((opt,j)=>{
+      const label=document.createElement("label"); label.style.display="block";
+      label.innerHTML=`<input type="checkbox" name="q${i}" value="${j}"> ${opt}`;
+      label.querySelector("input").onchange=()=>updateStatus(i);
+      wrap.appendChild(label);
+    });
+  }
+  return wrap;
+}
+
+function buildButtons(i){
+  const div=document.createElement("div"); div.className="question-buttons";
+  const prev=document.createElement("button"); prev.textContent="Előző"; prev.onclick=()=>showQuestion(i-1); if(i===0) prev.style.display="none";
+  const next=document.createElement("button"); next.textContent="Következő"; next.onclick=()=>showQuestion(i+1); if(i===quizData.length-1) next.style.display="none";
+  div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function showQuestion(n){
+  currentQuestion=n;
+  document.querySelectorAll(".question").forEach(d=>d.classList.remove("active"));
+  document.getElementById(`q${n}`).classList.add("active");
+  updateLeftPanel(n);
+  document.getElementById("finishBtn").style.display=(n===quizData.length-1)?"inline-block":"none";
+}
+
+function updateLeftPanel(i){
+  const q = quizData[i];
+  const left = document.getElementById("left-panel");
+
+  left.innerHTML = `<h2>Torricelli kísérlete</h2>`;
+
+  if(q.leftText){
+      const div = document.createElement("div");
+      div.innerHTML = q.leftText;
+      left.appendChild(div);
+  }
+
+  if(q.leftImage){
+      const img = document.createElement("img");
+      img.src = q.leftImage;
+      left.appendChild(img);
+      addZoomable();
+  }
+}
+
+function updateStatus(i){
+  const btn=document.querySelectorAll(".qn")[i];
+  const q=quizData[i];
+
+  if(q.type==="dropdown-multiple-sentences" || q.type==="dropdown"){
+    const selects=document.querySelectorAll(`#q${i} select`);
+    let total=selects.length, filled=0;
+    selects.forEach(s=>{ if(s.value!=="") filled++; });
+    if(filled===0) btn.style.backgroundColor="red";
+    else if(filled<total) btn.style.backgroundColor="orange";
+    else btn.style.backgroundColor="green";
+    return;
+  }
+
+  const sel=[...document.querySelectorAll(`input[name='q${i}']`)].filter(x=>x.checked).map(x=>Number(x.value));
+  if(sel.length===0){ btn.style.backgroundColor="red"; return;}
+  if(q.type==="single"){ btn.style.backgroundColor="green"; return;}
+  if(q.type==="multi"){ btn.style.backgroundColor=sel.length<q.correct.length?"orange":"green";}
+}
+
+document.getElementById("finishBtn").addEventListener("click", finishQuiz);
+document.getElementById("restartBtn").addEventListener("click", restartQuiz);
+
+function finishQuiz(){
+  let totalScore=0;
+  quizData.forEach((q,i)=>{
+    let questionScore=0;
+    const wrap=document.getElementById(`q${i}`);
+
+    if(q.type==="dropdown-multiple-sentences"){
+      const selects=[...wrap.querySelectorAll("select")];
+      selects.forEach(s=>{
+        const idx=Number(s.dataset.optIndex);
+        if(s.value !== "" && Number(s.value) === q.correct[idx]) questionScore++;
+      });
+    } else if(q.type==="dropdown"){
+      const sel=wrap.querySelector("select");
+      if(sel.value !== "" && Number(sel.value)===q.correct[0]) questionScore=1;
+    } else if(q.type==="single"){
+      const sel=[...wrap.querySelectorAll(`input[name='q${i}']`)].filter(x=>x.checked).map(x=>Number(x.value));
+      if(arraysEqual(sel,q.correct)) questionScore=1;
+    } else if(q.type==="multi"){
+      const sel = [...wrap.querySelectorAll(`input[name='q${i}']`)]
+                    .filter(x=>x.checked).map(x=>Number(x.value));
+      const correctSelected = sel.filter(v=>q.correct.includes(v)).length;
+      const incorrectSelected = sel.filter(v=>!q.correct.includes(v)).length;
+      questionScore = correctSelected - incorrectSelected;
+      if(questionScore < 0) questionScore = 0;
+      if(questionScore > (q.points || 1)) questionScore = q.points;
+    }
+
+    totalScore += questionScore;
+    wrap.dataset.questionScore = questionScore;
+  });
+
+  document.getElementById("resultText").innerHTML=
+    `Összpontszám: ${totalScore} / ${quizData.reduce((a,b)=>a+(b.points||1),0)}<br>`+
+    quizData.map((q,i)=>`Kérdés ${i+1}: ${document.getElementById(`q${i}`).dataset.questionScore || 0} pont`).join("<br>");
+
+  document.getElementById("quiz-container").style.display="none";
+  document.getElementById("resultPage").style.display="block";
+}
+
+function restartQuiz(){
+  document.querySelectorAll("select").forEach(s=>s.value="");
+  document.querySelectorAll("input[type=radio],input[type=checkbox]").forEach(inp=>inp.checked=false);
+  document.querySelectorAll(".qn").forEach(btn=>btn.style.backgroundColor="red");
+  currentQuestion=0; showQuestion(0);
+  document.getElementById("quiz-container").style.display="flex";
+  document.getElementById("resultPage").style.display="none";
+}
+
+function arraysEqual(a,b){ if(a.length!==b.length) return false; const sa=[...a].sort(), sb=[...b].sort(); return sa.every((v,i)=>v===sb[i]); }
+
+const overlay=document.getElementById("image-overlay");
+const overlayImg=document.getElementById("overlay-img");
+function addZoomable(){ const img=document.querySelector("#left-panel img"); if(!img) return; img.onclick=()=>{ overlayImg.src=img.src; overlay.style.display="flex"; setTimeout(()=>overlayImg.style.transform="scale(1)",10); }; }
+overlay.onclick=()=>{ overlayImg.style.transform="scale(0.7)"; setTimeout(()=>overlay.style.display="none",300); };
+
+initQuiz();
+</script>
+</body>
+</html>

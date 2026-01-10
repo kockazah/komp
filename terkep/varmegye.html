@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Térképes gyakorló</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background-color: var(--bg-color); color: var(--text-color); }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+    }
+    
+    #quiz-container .left { 
+        width:30%; border-right:2px solid var(--border-color); 
+        padding: 30px; overflow-y:auto; background-color: #fafafa;
+    }
+    
+    #quiz-container .right { 
+        width:70%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden;
+    }
+    
+    .quiz-header { 
+        padding-bottom:15px; border-bottom:1px solid var(--border-color); 
+        margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; 
+    }
+    
+    .quiz-questions { overflow-y:auto; flex-grow:1; padding-right: 10px; }
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { 
+        width:32px; height:32px; line-height:32px; text-align:center; 
+        border-radius:50%; background-color: var(--danger); color:white; 
+        font-weight: bold; cursor:pointer; transition: 0.2s;
+    }
+    
+    .question { display:none; animation: fadeIn 0.3s; }
+    .question.active { display:block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:30px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    
+    button { padding:12px 24px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-prev { background-color: #9ca3af; color: white; }
+    
+    /* Térkép és Drag and Drop Elrendezés */
+    .map-task-layout { display: flex; gap: 20px; align-items: flex-start; margin-top: 15px; }
+    .map-wrapper { flex: 4; position: relative; border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; background: white; }
+    .map-side-source {
+    flex: 0.8;
+    /* A képernyő magasságából levonjuk a fejléc és a gombok becsült helyét */
+    max-height: calc(100vh - 250px); 
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 10px;
+}
+
+    .map-drop-zone {
+        position: absolute; width: 50px; height: 20px;
+        border: 2px dashed var(--primary); background: rgba(255, 255, 255, 0.7);
+        border-radius: 6px; transform: translate(-50%, -50%);
+        display: flex; align-items: center; justify-content: center; z-index: 10;
+    }
+
+    /* Csoportosító (nem térképes) stílus */
+    .drop-zones { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px; }
+    .drop-zone { flex: 1; min-width: 140px; min-height: 100px; background: #fff; border: 2px solid var(--primary); border-radius: 8px; padding: 10px; }
+    .source-area { background: #f8fafc; border: 2px dashed #cbd5e1; padding: 15px; border-radius: 8px; min-height: 60px; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+
+    .draggable-card { 
+        background: var(--primary); color: white; padding: 8px 12px; 
+        border-radius: 6px; cursor: grab; font-size: 0.8rem; font-weight: 500;
+        user-select: none; box-shadow: var(--shadow); text-align: center;
+    }
+    
+    label { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    #resultPage { display:none; padding:60px; text-align:center; max-width: 800px; margin: 50px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    </style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel"></div>
+  <div class="right">
+    <div class="quiz-header">
+      <h2 style="margin:0;">Magyarország vármegyéi</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultHeader">Eredmény</h1>
+  <div id="resultText"></div>
+  <button id="restartBtn" class="btn-next">Újrakezdés</button>
+</div>
+
+<script>
+const quizData = [
+    
+    {
+        question: "Helyezd el a vármegyék nevét a térképen!",
+        type: "map-dragdrop",
+        mapImage: "varmegyek.png",
+        elemek: [
+            { szo: "Bács-Kiskun", kat: "1", top: "67.3%", left: "49.8%" },
+            { szo: "Baranya", kat: "2", top: "87.2%", left: "31.2%" },
+            { szo: "Békés", kat: "3", top: "64.2%", left: "71.1%" },
+	    { szo: "Borsod-Abaúj-Zemplén", kat: "4", top: "18.6%", left: "70.5%" },
+            { szo: "Csongrád-Csanád", kat: "5", top: "74.4%", left: "60.2%" },
+            { szo: "Fejér", kat: "6", top: "54.7%", left: "37.6%" },
+	    { szo: "Győr-Moson-Sopron", kat: "7", top: "38.7%", left: "21.4%" },
+            { szo: "Hajdú-Bihar", kat: "8", top: "42.5%", left: "77.6%" },
+            { szo: "Heves", kat: "9", top: "31.6%", left: "60%" },
+	    { szo: "Komárom-Esztergom", kat: "10", top: "38.1%", left: "32.1%" },
+            { szo: "Nógrád", kat: "11", top: "26.1%", left: "50.7%" },
+            { szo: "Pest", kat: "12", top: "48.9%", left: "50.8%" },
+	    { szo: "Somogy", kat: "13", top: "72.2%", left: "22.7%" },
+            { szo: "Szabolcs-Szatmár-Bereg", kat: "14", top: "26.6%", left: "87.9%" },
+            { szo: "Tolna", kat: "15", top: "72.4%", left: "35.9%" },
+	    { szo: "Vas", kat: "16", top: "51.8%", left: "12.6%" },
+            { szo: "Veszprém", kat: "17", top: "52.2%", left: "23.6%" },
+            { szo: "Zala", kat: "18", top: "66.2%", left: "12.1%" },
+	    { szo: "Jász-Nagykun-Szolnok", kat: "19", top: "49.6%", left: "63.6%" },
+            { szo: "Budapest", kat: "20", top: "41.1%", left: "44.8%" },
+        ],
+        points: 20,
+        leftText: "<h3>Magyarország vármegyéi</h3><p>Húzd a neveket a térképen jelölt helyekre!</p><p><i></i></p>"
+    }
+];
+
+let currentQuestion = 0;
+
+function initQuiz(){
+    buildNavigator();
+    buildQuestions();
+    showQuestion(0);
+    document.getElementById("restartBtn").onclick = () => location.reload();
+    /*setupCoordinateDebugger();*/
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator");
+    nav.innerHTML="";
+    quizData.forEach((_,i)=>{
+        const span=document.createElement("span");
+        span.className="qn"; span.id=`nav-${i}`; span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz");
+    quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div");
+        div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.2rem; margin-bottom: 20px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    
+    if(q.type === "map-dragdrop"){
+        const layout = document.createElement("div");
+        layout.className = "map-task-layout";
+
+        const mapWrap = document.createElement("div");
+        mapWrap.className = "map-wrapper";
+        mapWrap.innerHTML = `<img src="${q.mapImage}" class="map-bg" style="width:100%; display:block;">`;
+        
+        q.elemek.forEach(el => {
+            const zone = document.createElement("div");
+            zone.className = "map-drop-zone";
+            zone.style.top = el.top; zone.style.left = el.left;
+            zone.dataset.kat = el.kat;
+            zone.ondragover = e => e.preventDefault();
+            zone.ondrop = drop;
+            mapWrap.appendChild(zone);
+        });
+
+        const source = document.createElement("div");
+        source.className = "map-side-source";
+        source.id = `source-${i}`;
+        source.ondragover = e => e.preventDefault();
+        source.ondrop = drop;
+
+        q.elemek.sort(() => Math.random() - 0.5).forEach((el, ei) => {
+            const card = document.createElement("div");
+            card.className = "draggable-card";
+            card.id = `q${i}-c${ei}`;
+            card.textContent = el.szo;
+            card.draggable = true;
+            card.dataset.correct = el.kat;
+            card.ondragstart = e => e.dataTransfer.setData("text", e.target.id);
+            source.appendChild(card);
+        });
+
+        layout.appendChild(mapWrap);
+        layout.appendChild(source);
+        wrap.appendChild(layout);
+
+    } else if(q.type === "dragdrop"){
+        const container = document.createElement("div");
+        const zones = document.createElement("div");
+        zones.className = "drop-zones";
+        [...new Set(q.elemek.map(e => e.kat))].forEach(kat => {
+            const zone = document.createElement("div");
+            zone.className = "drop-zone";
+            zone.dataset.kat = kat;
+            zone.innerHTML = `<div style="font-size:0.8rem; color:#666; font-weight:bold; margin-bottom:10px; border-bottom:1px solid #eee;">${kat}</div>`;
+            zone.ondragover = e => e.preventDefault();
+            zone.ondrop = drop;
+            zones.appendChild(zone);
+        });
+
+        const source = document.createElement("div");
+        source.className = "source-area";
+        source.id = `source-${i}`;
+        source.ondragover = e => e.preventDefault();
+        source.ondrop = drop;
+
+        q.elemek.sort(() => Math.random() - 0.5).forEach((el, ei) => {
+            const card = document.createElement("div");
+            card.className = "draggable-card";
+            card.id = `q${i}-c${ei}`;
+            card.textContent = el.szo;
+            card.draggable = true;
+            card.dataset.correct = el.kat;
+            card.ondragstart = e => e.dataTransfer.setData("text", e.target.id);
+            source.appendChild(card);
+        });
+
+        container.appendChild(zones);
+        container.appendChild(source);
+        wrap.appendChild(container);
+
+    } else if(q.type === "single"){
+        q.options.forEach((opt,j)=>{
+            const label=document.createElement("label");
+            label.innerHTML=`<input type="radio" name="q${i}" value="${j}"> ${opt}`;
+            label.querySelector("input").onchange = () => updateStatus(i);
+            wrap.appendChild(label);
+        });
+    }
+    return wrap;
+}
+
+function drop(e) {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text");
+    const card = document.getElementById(id);
+    let target = e.target;
+    while(target && !target.classList.contains('drop-zone') && !target.classList.contains('map-drop-zone') && !target.classList.contains('source-area') && !target.classList.contains('map-side-source')) {
+        target = target.parentElement;
+    }
+    if(target) {
+        target.appendChild(card);
+        updateStatus(parseInt(card.id.substring(1)));
+    }
+}
+
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    const q = quizData[i];
+    const wrap = document.getElementById(`q${i}`);
+    
+    if(q.type.includes("dragdrop")){
+        const total = q.elemek.length;
+        const placed = wrap.querySelectorAll('.drop-zone .draggable-card, .map-drop-zone .draggable-card').length;
+        if(placed === 0) btn.style.backgroundColor = "var(--danger)";
+        else if(placed < total) btn.style.backgroundColor = "var(--warning)";
+        else btn.style.backgroundColor = "var(--success)";
+    } else {
+        btn.style.backgroundColor = wrap.querySelector("input:checked") ? "var(--success)" : "var(--danger)";
+    }
+}
+
+function showQuestion(n){
+    currentQuestion = n;
+    document.querySelectorAll(".question").forEach(d => d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    
+    const q = quizData[n];
+    const left = document.getElementById("left-panel");
+    left.innerHTML = q.leftText || "";
+    if(q.leftImage) left.innerHTML += `<img src="${q.leftImage}" style="width:100%; margin-top:15px; border-radius:8px; border:1px solid #ddd;">`;
+
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); prev.className="btn-prev"; prev.textContent="← Vissza";
+    prev.onclick=()=>showQuestion(i-1); if(i===0) prev.style.visibility="hidden";
+    
+    const next=document.createElement("button");
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Kiértékelés" : "Következő →";
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function finishQuiz(){
+    let score = 0, max = 0;
+    quizData.forEach((q, i) => {
+        const wrap = document.getElementById(`q${i}`);
+        if(q.type.includes("dragdrop")){
+            wrap.querySelectorAll(".draggable-card").forEach(c => {
+                if(c.parentElement.dataset.kat === c.dataset.correct) score++;
+            });
+            max += q.elemek.length;
+        } else {
+            const sel = wrap.querySelector("input:checked");
+            if(sel && parseInt(sel.value) === q.correct[0]) score++;
+            max++;
+        }
+    });
+    
+    document.getElementById("quiz-container").style.display = "none";
+    document.getElementById("resultPage").style.display = "block";
+    const percent = Math.round(score/max*100);
+    document.getElementById("resultText").innerHTML = `
+        <div style="font-size: 3rem; font-weight: bold; color: var(--primary);">${percent}%</div>
+        <h3>${max} pontból ${score} helyes válasz.</h3>
+    `;
+}
+
+
+window.onload = initQuiz;
+</script>
+</body>
+</html>

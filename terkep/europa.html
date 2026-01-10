@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Európa vaktérkép</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background-color: var(--bg-color); color: var(--text-color); }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+    }
+    
+    #quiz-container .left { 
+        width:10%; border-right:2px solid var(--border-color); 
+        padding: 30px; overflow-y:auto; background-color: #fafafa;
+    }
+    
+    #quiz-container .right { 
+        width:90%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden;
+    }
+    
+    .quiz-header { 
+        padding-bottom:15px; border-bottom:1px solid var(--border-color); 
+        margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; 
+    }
+    
+    .quiz-questions { overflow-y:auto; flex-grow:1; padding-right: 10px; }
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { 
+        width:32px; height:32px; line-height:32px; text-align:center; 
+        border-radius:50%; background-color: var(--danger); color:white; 
+        font-weight: bold; cursor:pointer; transition: 0.2s;
+    }
+    
+    .question { display:none; animation: fadeIn 0.3s; height: 100%; }
+    .question.active { display:flex; flex-direction: column; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:20px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    
+    button { padding:12px 24px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-prev { background-color: #9ca3af; color: white; }
+    
+    /* --- Térkép és Drag and Drop Elrendezés --- */
+    .map-task-layout { display: flex; gap: 20px; align-items: stretch; flex-grow: 1; min-height: 0; }
+    
+    /* A térkép kerete, ami görgethető */
+    .map-wrapper { 
+        flex: 4; position: relative; border: 1px solid var(--border-color); 
+        border-radius: var(--radius); overflow: auto; background: #e2e8f0;
+    }
+
+    /* A tényleges kép - 200% széles a nagyításhoz */
+    .map-inner-container { position: relative; width: 200%; line-height: 0; }
+    .map-bg { width: 100%; height: auto; display: block; }
+
+    /* Szövegdobozok sávja */
+    .map-side-source {
+        flex: 1.2;
+        max-height: 100%; 
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px;
+        background: #f8fafc;
+        border-radius: var(--radius);
+        border: 1px solid var(--border-color);
+    }
+
+    .map-drop-zone {
+    position: absolute;
+    /* Kivesszük a fix szélességet (width: 60px törölve) */
+    min-width: 30px; 
+    min-height: 20px;
+    width: auto;      /* Engedi tágulni a tartalomhoz */
+    height: auto;     /* Engedi tágulni függőlegesen is, ha több soros */
+    
+    border: 2px dashed var(--primary);
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 6px;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    padding: 5 px 5px;     /* Kell egy kis hely a szövegnek */
+}
+
+/* Amikor belekerül egy kártya, tüntessük el a szaggatott keretet */
+.map-drop-zone:has(.draggable-card) {
+    border-style: none;
+    background: none;
+}
+
+    .draggable-card { 
+    background: var(--primary);
+    color: white;
+    padding: 6px 10px; 
+    border-radius: 4px;
+    cursor: grab;
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap; /* Megakadályozza, hogy a hosszú nevek több sorba törjenek */
+    user-select: none;
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+    }
+    
+    /* Koordinátakereső stílusa */
+    #debug-coord {
+        position: fixed; bottom: 10px; right: 10px; 
+        background: #000; color: #0f0; padding: 10px; 
+        font-family: monospace; border-radius: 5px; z-index: 9999;
+        display: none; /* Itt kapcsolható ki */
+    }
+
+    #resultPage { display:none; padding:60px; text-align:center; max-width: 800px; margin: 50px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+
+</style>
+</head>
+<body>
+
+<div id="debug-coord">Kattints a térképre a koordinátákért!</div>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel"></div>
+  <div class="right">
+    <div class="quiz-header">
+      <h2 id="quiz-title">Európa országai</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultHeader">Eredmény</h1>
+  <div id="resultText"></div>
+  <button id="restartBtn" class="btn-next" onclick="location.reload()">Újrakezdés</button>
+</div>
+
+<script>
+const quizData = [
+    {
+        question: "Helyezd el az országok nevét a térképen!",
+        type: "map-dragdrop",
+        mapImage: "europa.jpg",
+        elemek: [
+            { szo: "Izland", kat: "1", top: "9.2%", left: "17.3%" },
+            { szo: "Írország", kat: "2", top: "43.4%", left: "17.9%" },
+            { szo: "Egyesült Királyság", kat: "3", top: "47.7%", left: "25.7%" },
+            { szo: "Portugália", kat: "4", top: "74.3%", left: "7.3%" },
+            { szo: "Spanyolország", kat: "5", top: "78.9%", left: "14.3%" },
+            { szo: "Franciaország", kat: "6", top: "64.4%", left: "29.2%" },
+            { szo: "Norvégia", kat: "7", top: "28.9%", left: "44.5%" },
+            { szo: "Svédország", kat: "8", top: "32.2%", left: "50.8%" },
+            { szo: "Finnország", kat: "9", top: "25.5%", left: "63.5%" },
+            { szo: "Észtország", kat: "10", top: "35.9%", left: "64.2%" },
+            { szo: "Lettország", kat: "11", top: "40.9%", left: "64.4%" },
+            { szo: "Litvánia", kat: "12", top: "44.9%", left: "62.2%" },
+            { szo: "Dánia", kat: "13", top: "41.7%", left: "42.3%" },
+            { szo: "Németország", kat: "14", top: "54.7%", left: "41.1%" },
+            { szo: "Lengyelország", kat: "15", top: "53.1%", left: "55.5%" },
+            { szo: "Fehéroroszország", kat: "16", top: "49.2%", left: "68.2%" },
+            { szo: "Belgium", kat: "17", top: "54.9%", left: "33.6%" },
+            { szo: "Hollandia", kat: "18", top: "51%", left: "35.8%" },
+            { szo: "Svájc", kat: "19", top: "65.7%", left: "37.4%" },
+            { szo: "Ausztria", kat: "20", top: "65%", left: "47.9%" },
+            { szo: "Magyarország", kat: "21", top: "67.1%", left: "55.4%" },
+            { szo: "Csehország", kat: "22", top: "59.4%", left: "49.1%" },
+            { szo: "Szlovákia", kat: "23", top: "62.6%", left: "55.7%" },
+            { szo: "Olaszország", kat: "24", top: "70.4%", left: "40.7%" },
+            { szo: "Szlovénia", kat: "25", top: "69.3%", left: "47.9%" },
+            { szo: "Horvátország", kat: "26", top: "70.4%", left: "51.3%" },
+            { szo: "Bosznia-Hercegovina", kat: "27", top: "74%", left: "52.8%" },
+            { szo: "Szerbia", kat: "28", top: "73.5%", left: "57.5%" },
+            { szo: "Montenegró", kat: "29", top: "77.9%", left: "55%" },
+            { szo: "Albánia", kat: "30", top: "83.7%", left: "57%" },
+            { szo: "É-Macedónia", kat: "31", top: "81.1%", left: "59.4%" },
+            { szo: "Koszovó", kat: "32", top: "78.3%", left: "58.3%" },
+	    { szo: "Ukrajna", kat: "33", top: "58.8%", left: "65.8%" },
+            { szo: "Moldova", kat: "34", top: "64.9%", left: "70.1%" },
+            { szo: "Románia", kat: "35", top: "69.3%", left: "64.3%" },
+            { szo: "Bulgária", kat: "36", top: "78%", left: "65.6%" },
+            { szo: "Görögország", kat: "37", top: "85.1%", left: "59.6%" },
+            { szo: "Törökország", kat: "38", top: "85.7%", left: "74.8%" },
+        ],
+        leftText: "<h3>Európa országai</h3><p>Húzd a neveket a térképen jelölt helyekre! A térképet és a névsort is görgetheted.</p>"
+    }
+];
+
+let currentQuestion = 0;
+
+function initQuiz(){
+    buildNavigator();
+    buildQuestions();
+    showQuestion(0);
+    setupCoordinateDebugger();
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator");
+    nav.innerHTML="";
+    quizData.forEach((_,i)=>{
+        const span=document.createElement("span");
+        span.className="qn"; span.id=`nav-${i}`; span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz");
+    quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div");
+        div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.1rem; margin-bottom: 15px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    wrap.style.flexGrow = "1";
+    wrap.style.display = "flex";
+    wrap.style.minHeight = "0";
+
+    if(q.type === "map-dragdrop"){
+        const layout = document.createElement("div");
+        layout.className = "map-task-layout";
+
+        const mapWrapper = document.createElement("div");
+        mapWrapper.className = "map-wrapper";
+        
+        const innerContainer = document.createElement("div");
+        innerContainer.className = "map-inner-container";
+        innerContainer.id = "map-inner";
+        innerContainer.innerHTML = `<img src="${q.mapImage}" class="map-bg">`;
+        
+        q.elemek.forEach(el => {
+            const zone = document.createElement("div");
+            zone.className = "map-drop-zone";
+            zone.style.top = el.top; zone.style.left = el.left;
+            zone.dataset.kat = el.kat;
+            zone.ondragover = e => e.preventDefault();
+            zone.ondrop = drop;
+            innerContainer.appendChild(zone);
+        });
+
+        const source = document.createElement("div");
+        source.className = "map-side-source";
+        source.id = `source-${i}`;
+        source.ondragover = e => e.preventDefault();
+        source.ondrop = drop;
+
+        [...q.elemek].sort(() => Math.random() - 0.5).forEach((el, ei) => {
+            const card = document.createElement("div");
+            card.className = "draggable-card";
+            card.id = `q${i}-c${ei}`;
+            card.textContent = el.szo;
+            card.draggable = true;
+            card.dataset.correct = el.kat;
+            card.ondragstart = e => e.dataTransfer.setData("text", e.target.id);
+            source.appendChild(card);
+        });
+
+        mapWrapper.appendChild(innerContainer);
+        layout.appendChild(mapWrapper);
+        layout.appendChild(source);
+        wrap.appendChild(layout);
+    }
+    return wrap;
+}
+
+function setupCoordinateDebugger() {
+    const mapInner = document.getElementById("map-inner");
+    const debugDiv = document.getElementById("debug-coord");
+    
+    if(!mapInner) return;
+
+    mapInner.addEventListener("click", function(e) {
+        const rect = mapInner.getBoundingClientRect();
+        const x = ((e.pageX - rect.left) / rect.width * 100).toFixed(1);
+        const y = ((e.pageY - rect.top) / rect.height * 100).toFixed(1);
+        
+        const result = `{ szo: "NÉV", kat: "ID", top: "${y}%", left: "${x}%" },`;
+        debugDiv.innerText = result;
+        console.log(result);
+    });
+}
+
+function drop(e) {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text");
+    const card = document.getElementById(id);
+    let target = e.target;
+    while(target && !target.classList.contains('map-drop-zone') && !target.classList.contains('map-side-source')) {
+        target = target.parentElement;
+    }
+    if(target) {
+        target.appendChild(card);
+        updateStatus(parseInt(card.id.substring(1)));
+    }
+}
+
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    const q = quizData[i];
+    const wrap = document.getElementById(`q${i}`);
+    const placed = wrap.querySelectorAll('.map-drop-zone .draggable-card').length;
+    
+    if(placed === 0) btn.style.backgroundColor = "var(--danger)";
+    else if(placed < q.elemek.length) btn.style.backgroundColor = "var(--warning)";
+    else btn.style.backgroundColor = "var(--success)";
+}
+
+function showQuestion(n){
+    currentQuestion = n;
+    document.querySelectorAll(".question").forEach(d => d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    
+    const q = quizData[n];
+    document.getElementById("left-panel").innerHTML = q.leftText || "";
+
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); prev.className="btn-prev"; prev.textContent="← Vissza";
+    prev.onclick=()=>showQuestion(i-1); if(i===0) prev.style.visibility="hidden";
+    
+    const next=document.createElement("button");
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Kiértékelés" : "Következő →";
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function finishQuiz(){
+    let score = 0, max = 0;
+    quizData.forEach((q, i) => {
+        const wrap = document.getElementById(`q${i}`);
+        wrap.querySelectorAll(".draggable-card").forEach(c => {
+            if(c.parentElement.dataset.kat === c.dataset.correct) score++;
+        });
+        max += q.elemek.length;
+    });
+    
+    document.getElementById("quiz-container").style.display = "none";
+    document.getElementById("resultPage").style.display = "block";
+    const percent = Math.round(score/max*100);
+    document.getElementById("resultText").innerHTML = `
+        <div style="font-size: 3rem; font-weight: bold; color: var(--primary);">${percent}%</div>
+        <h3>${max} pontból ${score} helyes válasz.</h3>
+    `;
+}
+
+window.onload = initQuiz;
+</script>
+</body>
+</html>

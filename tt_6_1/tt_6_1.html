@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Természettudomány – Kvíz</title>
+<style>
+body { font-family: Arial,sans-serif; margin:0; padding:0; }
+#quiz-container { display:flex; flex-direction:row; max-width:1200px; margin:auto; gap:0; }
+#quiz-container > div { padding:20px; }
+#quiz-container .left { width:40%; border-right:2px solid #ddd; max-height:80vh; overflow-y:auto; }
+#quiz-container .right { width:60%; display:flex; flex-direction:column; max-height:80vh; }
+
+#quiz-container .right .quiz-header { 
+  position: sticky; 
+  top:0; 
+  background-color:white; 
+  z-index:10; 
+  padding-bottom:10px; 
+  border-bottom:1px solid #ccc; 
+  display:flex; 
+  justify-content:space-between; 
+  align-items:center; 
+}
+
+#quiz-container .right .quiz-questions { 
+  overflow-y:auto; 
+  flex-grow:1; 
+  position:relative; 
+}
+
+#question-navigator { margin-bottom:10px; }
+#question-navigator .qn { 
+  display:inline-block; 
+  width:30px; height:30px; 
+  line-height:30px; text-align:center; 
+  border-radius:50%; 
+  background-color:red; 
+  color:white; 
+  margin-right:5px; 
+  cursor:pointer; 
+}
+
+.question { display:none; }
+.question.active { display:block; }
+.question-buttons { display:flex; justify-content:space-between; margin-top:10px; }
+
+#result { display:none; font-size:1.2em; color:blue; margin-top:20px; }
+#restartBtn { display:none; margin-top:10px; padding:10px 20px; }
+
+#left-panel img { width: 90%; height: auto; object-fit: contain; display:block; margin-top:10px; }
+
+/* --- Lightbox CSS --- */
+#image-overlay {
+  position: fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.3s ease;
+}
+#overlay-img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(255,255,255,0.3);
+  cursor: zoom-out;
+  transform: scale(0.7);
+  transition: transform 0.4s ease;
+}
+.zoomable { cursor: zoom-in; transition: 0.2s; }
+.zoomable:hover { opacity: 0.8; }
+
+@media (max-width:768px) {
+  #quiz-container { flex-direction:column; }
+  #quiz-container .left,#quiz-container .right { width:100%; max-height:none; border-right:none; }
+}
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>Kvíz</h2>
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <h2>Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+
+    <div class="quiz-questions" id="quiz"></div>
+    
+    <button id="finishBtn" onclick="finishQuiz()" style="margin-top:10px; padding:10px 20px; display:none;">
+      Lezárás
+    </button>
+
+    <div id="result"></div>
+    <button id="restartBtn" onclick="restartQuiz()">Újrakezdés</button>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div id="image-overlay">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+// -------------------------
+//   KÉRDÉSEK
+// -------------------------
+const quizData = [
+{
+  question: "Milyen halmazállapotú az oxigén szobahőmérsékleten?",
+  type: "single",
+  options: ["Szilárd", "Folyékony", "Gáz","Plazma"],
+  correct: [2],
+  leftText: "Oxigén",
+  leftImage: "tt_1_1.jpg"
+},
+
+{
+  question: "Melyik egy anyag fizikai tulajdonsága?",
+  type: "single",
+  options: ["Tömeg", "Alak", "Sűrűség","Méret"],
+  correct: [2],
+  leftText: "Anyagok jellemzői",
+  leftImage: "tt_1_2.jpg"
+},
+
+{
+  question: "Melyek a megújuló energiaforrások?",
+  type: "multi",
+  options: ["Szélenergia", "Földgáz", "Napenergia", "Kőolaj"],
+  correct: [0,2],
+  leftText: "Jelöld meg mindkét helyes választ!",
+  leftImage: "tt_1_3.jpg"
+},
+
+{
+  question: "Mihez kell közeg?",
+  type: "single",
+  options: ["A fény terjedéséhez", "A hang terjedéséhez", "Az árnyék kialakulásához","A mágnesességhez"],
+  correct: [1],
+  leftText: "Közeg",
+  leftImage: "tt_1_4.jpg"
+},
+
+{
+  question: "Mi okozza a nappalok és éjszakák váltakozását?",
+  type: "single",
+  options: ["A Föld forgása", "A Föld keringése a Nap körül", "A Nap mozgása","A Föld mágneses tere"],
+  correct: [0],
+  leftText: "Nappalok és éjszakák",
+  leftImage: "tt_1_5.jpg"
+},
+
+{
+  question: "Mi történik a levegővel melegítéskor?",
+  type: "single",
+  options: ["Összehúzódik", "Kitágul", "Megszilárdul","Gázból folyadékká válik"],
+  correct: [1],
+  leftText: "Levegő",
+  leftImage: "tt_1_6.jpg"
+},
+
+{
+  question: "Mely tulajdonságok jellemzik a fémeket?",
+  type: "multi",
+  options: ["Jó hővezetők", "Jó elektromos vezetők", "Rosszul alakíthatók", "Fényes felületűek"],
+  correct: [0,1,3],
+  leftText: "Jelöld meg az összes helyes választ!",
+  leftImage: "tt_1_7.jpg"
+},
+
+{
+  question: "A hang terjedési sebessége hol a leggyorsabb?",
+  type: "single",
+  options: ["Levegőben", "Vízben", "Acélban","Vákuumban"],
+  correct: [2],
+  leftText: "A hang",
+  leftImage: "tt_1_8.jpg"
+},
+
+{
+  question: "Melyik égitest kering a Nap körül?",
+  type: "single",
+  options: ["A Hold", "A Sarkcsillag", "A Föld","Az Androméda-galaxis"],
+  correct: [2],
+  leftText: "Jelöld be a helyes választ!",
+  leftImage: "tt_1_9.jpg"
+},
+
+{
+  question: "Mi történik fotoszintézis során?",
+  type: "multi",
+  options: ["Oxigén képződik", "Cukor keletkezik", "A növény elhasználja a szén-dioxidot", "A növény lebontja a cukrot","szén-dioxid képződik"],
+  correct: [0,1,2],
+  leftText: "Jelöld meg az összes helyes választ!",
+  leftImage: "tt_1_10.jpg"
+},
+
+{
+  question: "Melyik NEM halmazállapot-változás?",
+  type: "single",
+  options: ["olvadás", "Lecsapódás", "Párolgás","Égés"],
+  correct: [3],
+  leftText: "Halmazállapot-változás",
+  leftImage: "tt_1_11.jpg"
+},
+
+{
+  question: "Mely jelenségek tartoznak a fényhez?",
+  type: "multi",
+  options: ["Visszaverődés", "Törés", "Hangrezgés", "Árnyék keletkezése"],
+  correct: [0,1,3],
+  leftText: "Jelöld meg az összes helyes választ!",
+  leftImage: "tt_1_12.jpg"
+},
+
+{
+  question: "Melyek a bolygók közös jellemzői?",
+  type: "multi",
+  options: ["Keringenek egy csillag körül", "Saját fényük van", "Általában gömb alakúak", "Közvetlenül a Nap energiájából jönnek létre"],
+  correct: [0,2],
+  leftText: "Jelöld meg az mindkét helyes választ!",
+  leftImage: "tt_1_13.jpg"
+},
+
+{
+  question: "Melyik anyag jó vezető?",
+  type: "single",
+  options: ["gyapot", "fa", "fémek","műanyag"],
+  correct: [2],
+  leftText: "Vezetők és szigetelők",
+  leftImage: "tt_1_14.jpg"
+},
+
+];
+
+// -------------------------
+//   NAVIGÁTOR
+// -------------------------
+const navDiv = document.getElementById("question-navigator");
+quizData.forEach((q,i)=>{
+  const span = document.createElement('span');
+  span.className='qn';
+  span.innerText=i+1;
+  span.addEventListener('click',()=> showQuestion(i));
+  navDiv.appendChild(span);
+});
+
+// -------------------------
+//   KÉRDÉSEK GENERÁLÁSA
+// -------------------------
+const quizDiv = document.getElementById("quiz");
+
+quizData.forEach((q,index)=>{
+  let html = `<div class='question' id='q${index}'>
+    <p><strong>${q.question}</strong></p>`;
+
+  const inputType = q.type === "multi" ? "checkbox" : "radio";
+
+  q.options.forEach((opt,i)=>{
+    html += `
+      <label style='display:block;margin-left:10px;'>
+        <input type='${inputType}' name='q${index}' value='${i}'> ${opt}
+      </label>
+    `;
+  });
+
+  html += `
+    <div class='question-buttons'>
+      <button class='prevBtn' onclick='prevQuestion()'>Előző</button>
+      <button class='nextBtn' onclick='nextQuestion()'>Következő</button>
+    </div>
+  `;
+
+  html += "</div>";
+  quizDiv.innerHTML += html;
+});
+
+// -------------------------
+//   ALAPÉRTELMEZETT
+// -------------------------
+let currentQuestion = 0;
+
+document.querySelectorAll('.question').forEach((q,i)=>{
+  if(i===0) q.querySelector('.prevBtn').style.display='none';
+  if(i===quizData.length-1) q.querySelector('.nextBtn').style.display='none';
+});
+
+document.getElementById(`q${currentQuestion}`).classList.add('active');
+
+// -------------------------
+//   BAL OLDAL FRISSÍTÉSE
+// -------------------------
+function updateLeftPanel(index){
+  const q = quizData[index];
+  const left = document.getElementById("left-panel");
+
+  left.innerHTML = "<h2>Természettudomány kompetencia gyakorló feladatok</h2>";
+
+  if(q.leftText){
+    const p = document.createElement("p");
+    p.innerText = q.leftText;
+    left.appendChild(p);
+  }
+
+  if(q.leftImage){
+    const img = document.createElement("img");
+    img.src = q.leftImage;
+    img.alt = "Kép";
+    left.appendChild(img);
+  }
+
+  addZoomable(); // lightbox aktiválása
+}
+
+// -------------------------
+//   HELYESSÉG / SZÍNEZÉS
+// -------------------------
+function checkAnswerStatus(index){
+  const q = quizData[index];
+  const navigatorBtn = document.querySelectorAll('.qn')[index];
+
+  const selected = [...document.querySelectorAll(`input[name='q${index}']`)]
+      .filter(b => b.checked)
+      .map(b => Number(b.value));
+
+  if(selected.length === 0){
+    navigatorBtn.style.backgroundColor = "red";
+    return;
+  }
+
+  if(q.type === "single"){
+    navigatorBtn.style.backgroundColor = "green";
+    return;
+  }
+
+  // többválasztásos
+  if(selected.length < q.correct.length){
+    navigatorBtn.style.backgroundColor = "orange";
+  } else {
+    navigatorBtn.style.backgroundColor = "green";
+  }
+}
+
+// -------------------------
+//   KÉRDÉSVÁLTÁS
+// -------------------------
+function showQuestion(n){
+  updateLeftPanel(n);
+
+  document.querySelectorAll('.question').forEach(q=>q.classList.remove('active'));
+  document.getElementById(`q${n}`).classList.add('active');
+
+  document.querySelectorAll(`#q${n} input`).forEach(inp=>{
+    inp.addEventListener('change',()=> checkAnswerStatus(n));
+  });
+
+  currentQuestion=n;
+
+  document.querySelectorAll('.prevBtn').forEach(b=>b.style.display='inline-block');
+  document.querySelectorAll('.nextBtn').forEach(b=>b.style.display='inline-block');
+  if(n===0) document.querySelector(`#q${n} .prevBtn`).style.display='none';
+  if(n===quizData.length-1) document.querySelector(`#q${n} .nextBtn`).style.display='none';
+
+  document.getElementById("finishBtn").style.display =
+    (n===quizData.length-1) ? "inline-block" : "none";
+}
+
+// -------------------------
+function prevQuestion(){ if(currentQuestion>0) showQuestion(currentQuestion-1); }
+function nextQuestion(){ if(currentQuestion<quizData.length-1) showQuestion(currentQuestion+1); }
+
+// -------------------------
+//   LEZÁRÁS
+// -------------------------
+function finishQuiz(){
+  let score = 0;
+
+  quizData.forEach((q,index)=>{
+    const selected = [...document.querySelectorAll(`input[name='q${index}']`)]
+      .filter(el=>el.checked)
+      .map(el=>Number(el.value));
+
+    if(JSON.stringify(selected.sort()) === JSON.stringify(q.correct.sort()))
+      score++;
+  });
+
+  document.querySelector('.quiz-questions').style.display="none";
+  document.querySelector('.quiz-header').style.display="none";
+  document.getElementById("left-panel").style.display="none";
+
+  document.getElementById("result").style.display="block";
+  document.getElementById("result").innerText =
+    `Eredményed: ${score} / ${quizData.length}`;
+
+  document.getElementById("restartBtn").style.display="inline-block";
+  document.getElementById("finishBtn").style.display="none";
+}
+
+// -------------------------
+//   ÚJRAKEZDÉS
+// -------------------------
+function restartQuiz(){
+  document.querySelectorAll('input').forEach(el=>el.checked=false);
+  document.querySelectorAll('.qn').forEach(btn=> btn.style.backgroundColor="red");
+
+  document.querySelector('.quiz-questions').style.display="block";
+  document.querySelector('.quiz-header').style.display="flex";
+  document.getElementById("left-panel").style.display="block";
+
+  document.getElementById("result").style.display="none";
+  document.getElementById("restartBtn").style.display="none";
+
+  showQuestion(0);
+}
+
+// -------------------------
+//   LIGHTBOX FUNKCIÓ
+// -------------------------
+const overlay = document.getElementById("image-overlay");
+const overlayImg = document.getElementById("overlay-img");
+
+function addZoomable() {
+  const img = document.querySelector("#left-panel img");
+  if(img){
+    img.classList.add("zoomable");
+    img.onclick = () => {
+      overlayImg.src = img.src;
+      overlay.style.display = "flex";
+      setTimeout(()=> overlayImg.style.transform="scale(1)", 10);
+    };
+  }
+}
+
+overlay.addEventListener("click", () => {
+  overlayImg.style.transform="scale(0.7)";
+  setTimeout(()=> overlay.style.display="none", 300);
+});
+
+// -------------------------
+showQuestion(0);
+</script>
+</body>
+</html>

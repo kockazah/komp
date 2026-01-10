@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Thalész-tétel</title>
+<style>
+body { font-family: Arial,sans-serif; margin:0; padding:0; }
+#quiz-container { display:flex; flex-direction:row; max-width:1200px; margin:auto; gap:0; }
+#quiz-container > div { padding:20px; }
+#quiz-container .left { width:40%; border-right:2px solid #ddd; max-height:80vh; overflow-y:auto; }
+#quiz-container .right { width:60%; display:flex; flex-direction:column; max-height:80vh; }
+#quiz-container .right .quiz-header { position: sticky; top:0; background-color:white; z-index:10; padding-bottom:10px; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; }
+#quiz-container .right .quiz-questions { overflow-y:auto; flex-grow:1; position:relative; }
+#question-navigator { margin-bottom:10px; display:flex; flex-wrap:wrap; }
+#question-navigator .qn { display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; border-radius:50%; background-color:red; color:white; margin-right:5px; margin-bottom:5px; cursor:pointer; }
+.question { display:none; }
+.question.active { display:block; }
+.question-buttons { display:flex; justify-content:space-between; margin-top:10px; }
+#finishBtn { margin-top:10px; padding:10px 20px; display:none; }
+#resultPage { display:none; padding:40px; text-align:center; }
+#left-panel img { width: 90%; height: auto; object-fit: contain; display:block; margin-top:10px; cursor:zoom-in; transition:0.2s; }
+#left-panel img:hover { opacity:0.8; }
+#image-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.3s ease; }
+#overlay-img { max-width: 90%; max-height: 90%; border-radius: 12px; box-shadow: 0 0 20px rgba(255,255,255,0.3); cursor: zoom-out; transform: scale(0.7); transition: transform 0.4s ease; }
+@media (max-width:768px) { #quiz-container { flex-direction:column; } #quiz-container .left,#quiz-container .right { width:100%; max-height:none; border-right:none; } }
+.dropdown-sentence {
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>Kvíz</h2>
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <h2>Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+    <button id="finishBtn">Lezárás</button>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultText"></h1>
+  <button id="restartBtn">Újrakezdés</button>
+</div>
+
+<div id="image-overlay">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+const quizData = [
+
+{
+  question: "<p>Mi a kerületi szög fogalma (&alpha;)?<br></p>",
+  type: "single",
+  options: ["Olyan szög, amelynek csúcsa a kör középpontjában van, szárai pedig a kör kerületét metszik.","Olyan szög, amelynek csúcsa a kör kerületén van, és a szárai a körben húrok.","Olyan szög, amely a kör két érintője között van.","A háromszög belső szöge."],
+  correct: [1],
+  points:1,
+  leftText:"Kerületi szög.",
+  leftImage:"kerszog.jpg"
+},
+
+{
+  question: "<p>Mi a középponti szög fogalma (&beta;)?<br></p>",
+  type: "single",
+  options: ["Olyan szög, amelyet a kör egy húrja és egy érintője zár be.","Olyan szög, amelynek csúcsa a kör középpontjában van, szárai pedig a kör kerületét metszik.","Olyan szög, amelynek csúcsa a kör kerületén van, szárai pedig a körben húrok.","Két sugár közötti szög, ha azok nem a középpontból indulnak."],
+  correct: [1],
+  points:1,
+  leftText:"Középponti szög.",
+  leftImage:"kpszog.jpg"
+},
+
+{
+  question: "<p>Mi az összefüggés a kerületi szög (&alpha;) és a középponti szög (&beta;) között?<br></p>",
+  type: "single",
+  options: ["A kerületi és középponti szög egyenlő.","A kerületi szög kétszerese a középponti szögnek.","A kerületi szög feleakkora, mint a középponti szög.","Nincs összefüggés."],
+  correct: [2],
+  points:1,
+  leftText:"Kerületi és középponti szög.",
+  leftImage:"kpszog.jpg"
+},
+
+{
+  question: "<p>Mi a Thalész-tétel lényege?<br></p>",
+  type: "single",
+  options: ["Minden körben a középponti szög egyenlő a kerületi szöggel.","Két szelő által metszett párhuzamos egyenesek arányos szakaszokat vágnak le.","A háromszög belső szögeinek összege 180°","A kör átmérője fölé rajzolt kerületi szög mindig 90°."],
+  correct: [3],
+  points:1,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftVideo:"Thalesz.mp4"
+},
+
+{
+  question: "<p>Hogyan nevezzük azt a kört, amely az átmérő fölé rajzolt derékszögű háromszögeket tartalmazza?</p>",
+  type: "single",
+  options: ["Egységkör.","Körülírt kör.","Thalész-kör.","Beírt kör."],
+  correct: [2],
+  points:1,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftImage:"Thalesz.jpg"
+},
+
+{
+  question: "<p>Milyen háromszög keletkezik, ha egy kört az átmérője két részre oszt, és a kör kerületének tetszőleges pontját összekötjük az átmérő végpontjaival?</p>",
+  type: "single",
+  options: ["Tompaszögű háromszög","Derékszögű háromszög","Egyenlő oldalú háromszög","Egyenlő szárú háromszög"],
+  correct: [1],
+  points:1,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftImage:"Thalesz.jpg"
+},
+
+{
+  question: "<p>Egy derékszögű háromszög esetében mi a Thalész-kör átmérője?</p>",
+  type: "single",
+  options: ["A két befogó közül a rövidebb","A magasság","Az átfogó","Bármelyik oldal"],
+  correct: [2],
+  points:1,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftImage:"Thalesz.jpg"
+},
+
+{
+  question: "<p>Egy körben, ha az átmérő a 10 cm, mekkora a Thalész-kör sugara?</p>",
+  type: "single",
+  options: ["10 cm","20 cm","2,5 cm","5 cm"],
+  correct: [3],
+  points:1,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftImage:"Thalesz.jpg"
+},
+
+{
+  question: "<p>A Thalész-tétel alapján a félkörív bármely pontjához húzott két húr milyen szöget zár be egymással?</p>",
+  type: "single",
+  options: ["Bármilyen szög lehet","Pontosan 90°","90°-nál nagyobb","90°-nál kisebb"],
+  correct: [1],
+  points:1,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftImage:"Thalesz.jpg"
+},
+
+{
+  question: "<p>Melyik kijelentés IGAZ a Thalész-körre? (Két helyes válasz is van)</p>",
+  type: "multi",
+  options: ["Minden derékszögű háromszög köré írható Thalész-kör.","A Thalész-kör sugara megegyezik a derékszögű háromszög átfogójával.","Csak szabályos háromszögekre vonatkozik a tétel.","Csak egyenlő szárú háromszögekre vonatkozik a tétel.","A Thalész-kör középpontja a derékszögű háromszög leghosszabb oldalának felezőpontja."],
+  correct: [0,4],
+  points:2,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftImage:"Thalesz.jpg"
+},
+
+{
+  question: "<p>Egy AB átmérőjű körben C a kerület egy pontja. Mekkora az ACB szög?</p>",
+  type: "single",
+  options: ["60°","45°","90°","180°"],
+  correct: [2],
+  points:1,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftImage:"Thalesz.jpg"
+},
+
+
+{
+  question: "<p>Mi az, amit a Thalész-tétel felhasználásával tudunk könnyen, pontosan szerkeszteni körzővel és vonalzóval?</p>",
+  type: "single",
+  options: ["Párhuzamos egyenest.","Egy 10°-os szöget.","Egy kör középpontját.","90°-os (derék)szöget."],
+  correct: [3],
+  points:1,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftImage:"Thalesz.jpg"
+},
+
+{
+  question: "<p>Mi a Thalész-tétel megfordításának lényege a derékszögű háromszög és a kör kapcsolatában?</p>",
+  type: "single",
+  options: ["A háromszög bármely oldalának felezőmerőlegese átmegy a szemközti csúcson.","A derékszögű háromszög köré írt kör átmérője az átfogó.","Ha egy háromszög egyik oldala mint átmérő fölé rajzolt kör átmegy a harmadik csúcson, akkor a harmadik szög 60°.","Minden kerületi szög 90°, amely egy ívhez tartozik."],
+  correct: [1],
+  points:1,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftImage:"Thalesz.jpg"
+},
+
+{
+  question: "<p>Egy derékszögű háromszög befogói 3 cm és 4 cm. Mekkora a Thalész-kör átmérője?</p>",
+  type: "single",
+  options: ["3 cm","5 cm","7 cm","4 cm"],
+  correct: [1],
+  points:1,
+  leftText:"Ha egy kör átmérőjének két végpontját összekötjük a kör bármely pontjával (kivéve a két végpontot), mindig derékszögű háromszöget kapunk.",
+  leftImage:"Thalesz.jpg"
+},
+
+];
+
+let currentQuestion = 0;
+
+function initQuiz(){ buildNavigator(); buildQuestions(); showQuestion(0); }
+
+function buildNavigator(){
+  const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+  quizData.forEach((q,i)=>{
+    const span=document.createElement("span"); span.className="qn"; span.innerText=i+1;
+    span.onclick=()=>showQuestion(i);
+    nav.appendChild(span);
+  });
+}
+
+function buildQuestions(){
+  const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+  quizData.forEach((q,i)=>{
+    const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+    div.innerHTML=`<p><strong>${q.question||""}</strong></p>`;
+    div.appendChild(buildInputs(q,i));
+    div.appendChild(buildButtons(i));
+    quiz.appendChild(div);
+  });
+}
+
+function buildInputs(q,i){
+  const wrap=document.createElement("div");
+  if(q.type === "dropdown-multiple-sentences"){
+    let optIndex = 0;
+    const sentences = q.sentences;
+
+    sentences.forEach(sentence => {
+        const line = document.createElement("div");
+        line.className = "dropdown-sentence";
+
+        const words = sentence.text.split(" ");
+        words.forEach((word, wi) => {
+            if(sentence.blanks.includes(wi)){
+                const select = document.createElement("select");
+                select.dataset.optIndex = optIndex;
+                select.innerHTML = "<option value=''>Válassz...</option>";
+
+                // lehetőségek feltöltése
+                q.options[optIndex].forEach((opt, oi) => {
+                    const optionElem = document.createElement("option");
+                    optionElem.value = oi;
+                    optionElem.textContent = opt;
+                    select.appendChild(optionElem);
+                });
+
+                select.onchange = () => updateStatus(i);
+
+                line.appendChild(select);
+                line.appendChild(document.createTextNode(" "));
+                optIndex++;
+
+            } else {
+                line.appendChild(document.createTextNode(word + " "));
+            }
+        });
+
+        wrap.appendChild(line);
+    });
+}
+else if(q.type==="dropdown"){
+    const select=document.createElement("select"); select.id=`sel${i}`;
+    select.innerHTML="<option value=''>Válassz...</option>";
+    q.options.forEach((opt,j)=>{ const op=document.createElement("option"); op.value=j; op.textContent=opt; select.appendChild(op); });
+    select.onchange=()=>updateStatus(i);
+    wrap.appendChild(select);
+  } else if(q.type==="single"){
+    q.options.forEach((opt,j)=>{
+      const label=document.createElement("label"); label.style.display="block";
+      label.innerHTML=`<input type="radio" name="q${i}" value="${j}"> ${opt}`;
+      label.querySelector("input").onchange=()=>updateStatus(i);
+      wrap.appendChild(label);
+    });
+  } else if(q.type==="multi"){
+    q.options.forEach((opt,j)=>{
+      const label=document.createElement("label"); label.style.display="block";
+      label.innerHTML=`<input type="checkbox" name="q${i}" value="${j}"> ${opt}`;
+      label.querySelector("input").onchange=()=>updateStatus(i);
+      wrap.appendChild(label);
+    });
+  }
+  return wrap;
+}
+
+function buildButtons(i){
+  const div=document.createElement("div"); div.className="question-buttons";
+  const prev=document.createElement("button"); prev.textContent="Előző"; prev.onclick=()=>showQuestion(i-1); if(i===0) prev.style.display="none";
+  const next=document.createElement("button"); next.textContent="Következő"; next.onclick=()=>showQuestion(i+1); if(i===quizData.length-1) next.style.display="none";
+  div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function showQuestion(n){
+  currentQuestion=n;
+  document.querySelectorAll(".question").forEach(d=>d.classList.remove("active"));
+  document.getElementById(`q${n}`).classList.add("active");
+  updateLeftPanel(n);
+  document.getElementById("finishBtn").style.display=(n===quizData.length-1)?"inline-block":"none";
+}
+
+function updateLeftPanel(i){
+  const q = quizData[i]; 
+  const left = document.getElementById("left-panel");
+  left.innerHTML = `<h2>Thalész-tétele</h2>`;
+  
+  if(q.leftText){ 
+    const p = document.createElement("p"); 
+    p.textContent = q.leftText; 
+    left.appendChild(p);
+  }
+
+  if(q.leftVideo){ 
+    const video = document.createElement("video");
+    video.src = q.leftVideo;
+    video.controls = true;
+    video.width = left.clientWidth * 0.9;
+    video.style.marginTop = "10px";
+    video.style.borderRadius = "12px";
+    left.appendChild(video);
+  } 
+  else if(q.leftImage){ 
+    const img = document.createElement("img"); 
+    img.src = q.leftImage; 
+    left.appendChild(img); 
+    addZoomable(); // csak képnél használjuk
+  }
+}
+
+function updateStatus(i){
+  const btn=document.querySelectorAll(".qn")[i];
+  const q=quizData[i];
+
+  if(q.type==="dropdown-multiple-sentences" || q.type==="dropdown"){
+    const selects=document.querySelectorAll(`#q${i} select`);
+    let total=selects.length, filled=0;
+    selects.forEach(s=>{ if(s.value!=="") filled++; });
+    if(filled===0) btn.style.backgroundColor="red";
+    else if(filled<total) btn.style.backgroundColor="orange";
+    else btn.style.backgroundColor="green";
+    return;
+  }
+
+  const sel=[...document.querySelectorAll(`input[name='q${i}']`)].filter(x=>x.checked).map(x=>Number(x.value));
+  if(sel.length===0){ btn.style.backgroundColor="red"; return;}
+  if(q.type==="single"){ btn.style.backgroundColor="green"; return;}
+  if(q.type==="multi"){ btn.style.backgroundColor=sel.length<q.correct.length?"orange":"green";}
+}
+
+document.getElementById("finishBtn").addEventListener("click", finishQuiz);
+document.getElementById("restartBtn").addEventListener("click", restartQuiz);
+
+function finishQuiz(){
+  let totalScore=0;
+  quizData.forEach((q,i)=>{
+    let questionScore=0;
+    const wrap=document.getElementById(`q${i}`);
+
+    if(q.type==="dropdown-multiple-sentences"){
+      const selects=[...wrap.querySelectorAll("select")];
+      selects.forEach(s=>{
+        const idx=Number(s.dataset.optIndex);
+        if(s.value !== "" && Number(s.value) === q.correct[idx]) questionScore++;
+      });
+    } else if(q.type==="dropdown"){
+      const sel=wrap.querySelector("select");
+      if(sel.value !== "" && Number(sel.value)===q.correct[0]) questionScore=1;
+    } else if(q.type==="single"){
+      const sel=[...wrap.querySelectorAll(`input[name='q${i}']`)].filter(x=>x.checked).map(x=>Number(x.value));
+      if(arraysEqual(sel,q.correct)) questionScore=1;
+    } else if(q.type==="multi"){
+      const sel = [...wrap.querySelectorAll(`input[name='q${i}']`)]
+                    .filter(x=>x.checked).map(x=>Number(x.value));
+      const correctSelected = sel.filter(v=>q.correct.includes(v)).length;
+      const incorrectSelected = sel.filter(v=>!q.correct.includes(v)).length;
+      questionScore = correctSelected - incorrectSelected;
+      if(questionScore < 0) questionScore = 0;
+      if(questionScore > (q.points || 1)) questionScore = q.points;
+    }
+
+    totalScore += questionScore;
+    wrap.dataset.questionScore = questionScore;
+  });
+
+  document.getElementById("resultText").innerHTML=
+    `Összpontszám: ${totalScore} / ${quizData.reduce((a,b)=>a+(b.points||1),0)}<br>`+
+    quizData.map((q,i)=>`Kérdés ${i+1}: ${document.getElementById(`q${i}`).dataset.questionScore || 0} pont`).join("<br>");
+
+  document.getElementById("quiz-container").style.display="none";
+  document.getElementById("resultPage").style.display="block";
+}
+
+function restartQuiz(){
+  document.querySelectorAll("select").forEach(s=>s.value="");
+  document.querySelectorAll("input[type=radio],input[type=checkbox]").forEach(inp=>inp.checked=false);
+  document.querySelectorAll(".qn").forEach(btn=>btn.style.backgroundColor="red");
+  currentQuestion=0; showQuestion(0);
+  document.getElementById("quiz-container").style.display="flex";
+  document.getElementById("resultPage").style.display="none";
+}
+
+function arraysEqual(a,b){ if(a.length!==b.length) return false; const sa=[...a].sort(), sb=[...b].sort(); return sa.every((v,i)=>v===sb[i]); }
+
+const overlay=document.getElementById("image-overlay");
+const overlayImg=document.getElementById("overlay-img");
+function addZoomable(){ const img=document.querySelector("#left-panel img"); if(!img) return; img.onclick=()=>{ overlayImg.src=img.src; overlay.style.display="flex"; setTimeout(()=>overlayImg.style.transform="scale(1)",10); }; }
+overlay.onclick=()=>{ overlayImg.style.transform="scale(0.7)"; setTimeout(()=>overlay.style.display="none",300); };
+
+initQuiz();
+</script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Szövegértés kvíz - 4. osztály (15 kérdés)</title>
+<style>
+#quiz-container { display:flex; flex-direction:row; max-width:1200px; margin:auto; font-family:Arial,sans-serif; gap:0; }
+#quiz-container > div { padding:20px; }
+#quiz-container .left { width:50%; border-right:2px solid #ddd; max-height:80vh; overflow-y:auto; }
+#quiz-container .right { width:50%; display:flex; flex-direction:column; max-height:80vh; }
+#quiz-container .right .quiz-header { position: sticky; top:0; background-color:white; z-index:10; padding-bottom:10px; border-bottom:1px solid #ccc; }
+#quiz-container .right .quiz-questions { overflow-y:auto; flex-grow:1; position:relative; }
+#question-navigator { margin-bottom:10px; }
+#question-navigator .qn { display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; border-radius:50%; background-color:red; color:white; margin-right:5px; cursor:pointer; }
+#question-navigator .qn.answered { background-color:green; }
+.question { display:none; }
+.question.active { display:block; }
+.question-buttons { display:flex; justify-content:space-between; margin-top:10px; }
+#result { display:none; font-size:1.2em; color:blue; margin-top:20px; }
+#restartBtn { display:none; margin-top:10px; padding:10px 20px; }
+@media (max-width:768px) { #quiz-container { flex-direction:column; } #quiz-container .left,#quiz-container .right { width:100%; max-height:none; border-right:none; } }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left">
+    <h2>Kutyafülűek</h2>
+    <p>Az alattunk lakó Kovácsék már tavaly elköltöztek, nem bírták idegekkel az
+örökös égiháborút, az ugrándozó gyereklábak és az ide-oda csúszkorászó széklábak, asztallábak, ágylábak zaját.<p>
+Simonékat, akik mellettünk laknak a harmadik emeleten, meg is kérdeztük
+akkoriban, nem zavarja-e őket a gyermeklárma.<p>
+– Nem – mondta Simon néni –, a gyerekeket nemigen szokták hallani, inkább engem, amikor rájuk kiabálok, legyenek csendben. […] Szépen sohase hallanak
+beszélni a gyerekekkel, mert az nem hallatszik ki a lépcsőházba.<p>
+Az viszont a földszintig lehallik, amikor időnként mindet túlkiabálom, mert
+valahogy csak tartani kell a tekintélyt. S az én hangom erre éppen alkalmas,
+lévén sztentori, vagy ha úgy tetszik: kántori.<p>
+De hát ez a hang is ellágyul, ha, mondjuk, reggelenként a két és fél éves Gergőt öltöztetem, s ilyenformán társalgok vele:<p>
+– Ham-ham, megeszem a füled. Ham-ham. Gergőnek nincs füle.<p>
+Odanyúl egy kis aggodalommal, aztán felkacag.<p>
+– De van!<p>
+– Jól van, te kutyafülű. Mondd, kutyafülű vagy?<p>
+Lesi a kölyök a bátyjai kaján tekintetét, mit szólnak ehhez. Dicsőség-e ez,
+vagy gyalázat? De már döntött is:<p>
+– Nem vagyok kutyafülű!<p>
+Ehhez aztán tartotta is magát. Míg egy szép nyári napon meg nem dobálta
+kővel a Miskát. Miska a ház öreg vizslája. Nincs e világon jámborabb lélek nálánál, a házbeli aprónép folyton nyaggatja, öleli, simogatja, fülét-farkát húzkodja
+– s ő tűri. Hanem azt már mégse tűrte, hogy Gergő, az átkozott, kővel kezdje
+hajigálni. Hirtelen megdühödött, s odakapott a gyerek füléhez.<p>
+Csak úgy csurgott belőle a vér.<p>
+Ijedtség, kimosás, bekenés, kötözés, doktor – Gergő mindezt férfiként állta.
+A veszettség se tört ki rajta azóta, úgyhogy már csak nevetünk az eseten, meg
+ami utána történt.<p>
+– Kinek a fülét harapta meg a kutya, Gergő? – kérdeztem egy alkalmas pillanatban.
+– Az enyimet – mondja némi büszkeséggel.<p>
+– Hát akkor te vagy a kutyafülű?<p>
+Pillanatnyi csend.<p>
+– Én vagyok a kutyafülű – egyezik bele aztán, egy kicsit bizonytalanul.
+Ennek az érvelésnek, hiába, nem tud ellenállni.<p>
+– Na látod, ugye, te vagy az? – S felkapom, feldobom, hogy majd a mennyezetet éri a feje (repülni nagyon szeret). Majd Anyjának is mindjárt kiáltok: – Gyere
+csak! Megismételjük a produkciót.<p>
+Gergő leszegett fejjel, szégyenlősen somolyogva, halkan, de állja az előbbi
+szavát, lévén született jellem. Anyja persze majd megeszi.<p>
+Attól fogva nem is emlegetjük másképp: „A kutyafülű.”<p><p>
+
+<right><i>Varga Domokos</i></right></p>
+  </div>
+  <div class="right">
+    <div class="quiz-header">
+      <h2>Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+    <button id="finishBtn" onclick="finishQuiz()" style="margin-top:10px; padding:10px 20px; display:none;">Lezárás</button>
+    <div id="result"></div>
+    <button id="restartBtn" onclick="restartQuiz()">Vissza</button>
+  </div>
+</div>
+<script>
+  if (sessionStorage.getItem("auth") !== "ok") {
+    window.location.href = "https://altisk-karcag.hu/wp-admin/komp/login.html";
+  }
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+
+const quizData = [
+{question:"1. Miért költöztek el Kovácsék a házból?", 
+options:["Nem szerették a szomszédokat",
+"Nem bírták a gyerekek zaját és az örökös zajongást",
+"Kisebb lakásba akartak költözni",
+"A házban nem volt fűtés"], 
+correct:1},
+
+{question:"2. Ki mondta, hogy a gyerekeket nemigen hallani a lépcsőházban?",
+options:["Kovács néni",
+"Simon néni",
+"Az író",
+"Gergő anyukája"],
+ correct:1},
+
+{question:"3. Milyen Simon néni hangja?",
+ options:["Suttogó",
+"Sztentori, kántori",
+"Halkan beszél",
+"Hangos, de remegő"],
+correct:1},
+
+{question:"4. Miért „lágyul” el Simon néni hangja reggelente?", 
+options:["Mert fáradt",
+"Mert Gergőt öltözteti és vele beszélget",
+"Mert a szomszédok jönnek",
+"Mert teát iszik"], 
+correct:1},
+
+{question:"5. Mit mond Simon néni Gergőnek öltöztetés közben?", 
+options:["„Gyere gyorsan!”",
+"„Ham-ham, megeszem a füled.”",
+"„Csak ülj nyugodtan.”",
+"„Ne mozogj!”"], 
+correct:1},
+
+{question:"6. Hogyan reagál Gergő, amikor azt mondják neki, hogy „kutyafülű”?", 
+options:["Rögtön azt mondja, hogy igen",
+"Azt mondja, hogy nem kutyafülű",
+"Sírdogál",
+"Elbújik"],
+ correct:1},
+
+{question:"7. Mit tett Gergő a Miskával?",
+ options:["Etette"
+,"Ölelgette",
+"Kővel dobálta",
+"Húzta a farkát"],
+ correct:2},
+
+{question:"8. Miért harapta meg Miska Gergőt?",
+ options:["Mert nem szereti a gyerekeket",
+"Mert kővel dobálták",
+"Mert hangosan kiabált",
+"Mert játszani akart vele"],
+ correct:1},
+
+{question:"9. Hova harapott Miska Gergőnek?",
+ options:["Karjába",
+"Fülébe",
+"Lábába",
+"Fenekébe"], 
+correct:1},
+
+{question:"10. Hogyan viselte Gergő a harapás következményeit?", 
+options:["Sírt és panaszkodott",
+"Férfiként állta, nem sírt",
+"Elbújt",
+"Ordított"],
+correct:1},
+
+{question:"11. Ki nevezi Gergőt végül „kutyafülűnek”?", 
+options:["Miska",
+"Simon néni",
+"Az író",
+"Gergő maga"], 
+correct:2},
+
+{question:"12. Miért fogadta el Gergő, hogy „kutyafülű”?", 
+options:["Mert büszke volt",
+"Mert az író érvelésének nem tudott ellenállni",
+"Mert Miska is ezt mondta",
+"Mert anya mondta neki"],
+correct:1},
+
+{question:"13. Milyen viselkedés jellemző Gergőre a történet végén?", 
+options:["Szégyenlős, de állja a szavát",
+"Síró és dacos",
+"Halkan beszél mindenkihez",
+"Ugrál és kiabál"],
+ correct:0},
+
+{question:"14. Ki mondja a következő szavakat: „Gyere csak! Megismételjük a produkciót.”?",
+ options:["Gergő",
+"Anyukája",
+"Az író",
+"Miska"], 
+correct:2},
+
+{question:"15. Mi maradt Gergőről a történet után a családban?", 
+options:["„A kis hős”",
+"„A kutyafülű”",
+"„A szófogadó”",
+"„A bajkeverő”"], 
+correct:1}
+];
+
+const navDiv = document.getElementById("question-navigator");
+quizData.forEach((q,i)=>{
+  const span = document.createElement('span');
+  span.className='qn';
+  span.innerText=i+1;
+  span.addEventListener('click',()=> showQuestion(i));
+  navDiv.appendChild(span);
+});
+
+const quizDiv = document.getElementById("quiz");
+quizData.forEach((q,index)=>{
+  let html = `<div class='question' id='q${index}'><p><strong>${q.question}</strong></p>`;
+  q.options.forEach((opt,i)=>{
+    html+=`<label style='display:block;margin-left:10px;'><input type='radio' name='q${index}' value='${i}'> ${opt}</label>`;
+  });
+  html+=`<div class='question-buttons'><button class='prevBtn' onclick='prevQuestion()'>Előző</button><button class='nextBtn' onclick='nextQuestion()'>Következő</button></div>`;
+  html+="</div>";
+  quizDiv.innerHTML+=html;
+});
+
+let currentQuestion=0;
+document.querySelectorAll('.question').forEach((q,i)=>{
+  if(i===0) q.querySelector('.prevBtn').style.display='none';
+  if(i===quizData.length-1) q.querySelector('.nextBtn').style.display='none';
+});
+document.getElementById(`q${currentQuestion}`).classList.add('active');
+
+document.querySelectorAll('input[type=radio]').forEach((el)=>{
+  el.addEventListener('change',()=>{
+    const qNum = parseInt(el.name.replace('q',''));
+    document.querySelectorAll('#question-navigator .qn')[qNum].classList.add('answered');
+  });
+});
+
+window.showQuestion = function(n){
+  document.querySelectorAll('.question').forEach(q=>q.classList.remove('active'));
+  document.getElementById(`q${n}`).classList.add('active');
+  currentQuestion=n;
+  document.querySelectorAll('.prevBtn').forEach(b=>b.style.display='inline-block');
+  document.querySelectorAll('.nextBtn').forEach(b=>b.style.display='inline-block');
+  if(n===0) document.getElementById(`q${n}`).querySelector('.prevBtn').style.display='none';
+  if(n===quizData.length-1) document.getElementById(`q${n}`).querySelector('.nextBtn').style.display='none';
+  if(n===quizData.length-1){
+    document.getElementById("finishBtn").style.display="inline-block";
+  } else {
+    document.getElementById("finishBtn").style.display="none";
+  }
+}
+window.prevQuestion = function(){ if(currentQuestion>0) showQuestion(currentQuestion-1); }
+window.nextQuestion = function(){ if(currentQuestion<quizData.length-1) showQuestion(currentQuestion+1); }
+
+window.finishQuiz = function(){
+  let score=0;
+  quizData.forEach((q,index)=>{
+    const answer = document.querySelector(`input[name='q${index}']:checked`);
+    if(answer && Number(answer.value)===q.correct) score++;
+  });
+  document.querySelector('.quiz-questions').style.display="none";
+  document.getElementById("finishBtn").style.display="none";
+  document.querySelector('.quiz-header').style.display="none";
+  document.getElementById("result").style.display="block";
+  document.getElementById("result").innerText=`Eredményed: ${score} / ${quizData.length}`;
+  document.getElementById("restartBtn").style.display="inline-block";
+  document.querySelector('.left').style.display="none";
+}
+
+window.restartQuiz = function(){
+  document.querySelectorAll('input[type=radio]').forEach(el=>el.checked=false);
+  document.querySelectorAll('#question-navigator .qn').forEach(q=>q.classList.remove('answered'));
+  document.querySelector('.quiz-questions').style.display="block";
+  document.querySelector('.quiz-header').style.display="flex";
+  document.querySelector('.left').style.display="block";
+  document.getElementById("result").style.display="none";
+  document.getElementById("restartBtn").style.display="none";
+  currentQuestion=0;
+  showQuestion(0);
+}
+
+showQuestion(0);
+
+});
+</script>
+
+</body>
+</html>

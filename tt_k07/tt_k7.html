@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Természettudomány – Kvíz</title>
+<style>
+body { font-family: Arial,sans-serif; margin:0; padding:0; }
+#quiz-container { display:flex; flex-direction:row; max-width:1200px; margin:auto; gap:0; }
+#quiz-container > div { padding:20px; }
+#quiz-container .left { width:50%; border-right:2px solid #ddd; max-height:80vh; overflow-y:auto; }
+#quiz-container .right { width:50%; display:flex; flex-direction:column; max-height:80vh; }
+#quiz-container .right .quiz-header { position: sticky; top:0; background-color:white; z-index:10; padding-bottom:10px; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; }
+#quiz-container .right .quiz-questions { overflow-y:auto; flex-grow:1; position:relative; }
+#question-navigator { margin-bottom:10px; display:flex; flex-wrap:wrap; }
+#question-navigator .qn { display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; border-radius:50%; background-color:red; color:white; margin-right:5px; margin-bottom:5px; cursor:pointer; }
+.question { display:none; }
+.question.active { display:block; }
+.question-buttons { display:flex; justify-content:space-between; margin-top:10px; }
+#finishBtn { margin-top:10px; padding:10px 20px; display:none; }
+#resultPage { display:none; padding:40px; text-align:center; }
+#left-panel img { width: 90%; height: auto; object-fit: contain; display:block; margin-top:10px; cursor:zoom-in; transition:0.2s; }
+#left-panel img:hover { opacity:0.8; }
+#image-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.3s ease; }
+#overlay-img { max-width: 90%; max-height: 90%; border-radius: 12px; box-shadow: 0 0 20px rgba(255,255,255,0.3); cursor: zoom-out; transform: scale(0.7); transition: transform 0.4s ease; }
+@media (max-width:768px) { #quiz-container { flex-direction:column; } #quiz-container .left,#quiz-container .right { width:100%; max-height:none; border-right:none; } }
+.dropdown-sentence {
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>Kvíz</h2>
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <h2>Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+    <button id="finishBtn">Lezárás</button>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultText"></h1>
+  <button id="restartBtn">Újrakezdés</button>
+</div>
+
+<div id="image-overlay">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+const quizData = [
+
+{
+  question: "<p>Azonos méretű, nyitott edényekbe azonos térfogatú etil-alkoholt, etil-étert, higanyt és vizet töltünk. <br><br>Melyik edényből tűnik el a folyadék először?</p>",
+  type: "single",
+  options: ["higany","etil-alkohol","éter","víz"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>Az alábbi táblázat néhány folyadék légköri nyomáson mért forráspontját tartalmazza.<br><br></p>",
+  leftImage:"tt_k071.jpg"
+},
+
+{
+  question: "<p>Lapos tálba és egy üvegbe azonos mennyiségű vizet töltünk. A két edényt ugyanabban a helységben hagyjuk. Előbb-utóbb mindkét edényből elpárolog a víz.<br><br> Melyikből tűnik el először?</p>",
+  type: "single",
+  options: ["Az üvegből, mert magasabb","A lapos tálból, mert nagyobb a párolgó felület","Ugyanannyi idő alatt","Csak az üvegből párolog"],
+  correct: [1],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>A párolgás magasabb hőmérsékleten gyorsabb, és ha nagyobb a párolgó felület, akkor is gyorsabban párolog a folyadék. A víz párolgását a páratartalom is befolyásolja. Ha magasabb a  páratartalom, lassabb a párolgás.<br> A párolgás endoterm folyamat. A párolgó folyadék hőmérséklete csökken, ezért hőt von el a környezetétől. Nyári melegben fürdünk egy kellemes vízhőmérsékletű tóban, medencében, tengerben. Amikor kijövünk a vízből, hűvöset érzünk. A párolgó víz hűti a testünket. A hűtőszekrények majd mindegyike a párolgás hőelvonó hatásán alapszik. A belsejében folyadékot párologtatnak el a hűtőpanelben. Ez hűti a hűtő belsejét.<br> Az elpárolgott folyadék gőzét a hűtő hátoldalán lévő kompresszor összenyomja, amitől az cseppfolyósodik, miközben hőt ad le. Ezért meleg a hűtők hátulja. Fontos tudni, hogy amikor egy folyadék gőze lecsapódik, akkor hőt ad le a környezetének.<br><br></p>",
+  leftImage:"tt_k072.jpg"
+},
+
+{
+  question: "<p>A működő hűtőszekrény hűti vagy fűti azt a helyiséget, amelyben használják?<br><br></p>",
+  type: "single",
+  options: ["Hűti, mert a belsejéből hőt von el","Nem változtatja a helyiség hőmérsékletét","Fűti, mert több hőt ad le a környezetének, mint amennyit a belsejéből elvon","Felváltva hűti és fűti a helyiséget"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>A párolgás magasabb hőmérsékleten gyorsabb, és ha nagyobb a párolgó felület, akkor is gyorsabban párolog a folyadék. A víz párolgását a páratartalom is befolyásolja. Ha magasabb a  páratartalom, lassabb a párolgás.<br> A párolgás endoterm folyamat. A párolgó folyadék hőmérséklete csökken, ezért hőt von el a környezetétől. Nyári melegben fürdünk egy kellemes vízhőmérsékletű tóban, medencében, tengerben. Amikor kijövünk a vízből, hűvöset érzünk. A párolgó víz hűti a testünket. A hűtőszekrények majd mindegyike a párolgás hőelvonó hatásán alapszik. A belsejében folyadékot párologtatnak el a hűtőpanelben. Ez hűti a hűtő belsejét.<br> Az elpárolgott folyadék gőzét a hűtő hátoldalán lévő kompresszor összenyomja, amitől az cseppfolyósodik, miközben hőt ad le. Ezért meleg a hűtők hátulja. Fontos tudni, hogy amikor egy folyadék gőze lecsapódik, akkor hőt ad le a környezetének.<br><br></p>",
+  leftImage:"tt_k073.jpg"
+},
+
+{
+  question: "<p>Nem szeretjük, amikor injekciót kapunk. Az injekció beadása előtt egy kisebb vatta- vagy gézdarabbal fertőtlenítik az érintett bőrfelületet.<br><br> Miért érezzük hidegnek a fertőtlenítést?<br><br></p>",
+  type: "single",
+  options: ["Mert az alkohol eleve hideg","Mert az alkohol lehűti a levegőt","Mert az alkohol gyorsan párolog, és hőt von el a bőrtől","Mert az alkohol gátolja a vérkeringést"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>A párolgás magasabb hőmérsékleten gyorsabb, és ha nagyobb a párolgó felület, akkor is gyorsabban párolog a folyadék. A víz párolgását a páratartalom is befolyásolja. Ha magasabb a  páratartalom, lassabb a párolgás.<br> A párolgás endoterm folyamat. A párolgó folyadék hőmérséklete csökken, ezért hőt von el a környezetétől. Nyári melegben fürdünk egy kellemes vízhőmérsékletű tóban, medencében, tengerben. Amikor kijövünk a vízből, hűvöset érzünk. A párolgó víz hűti a testünket. A hűtőszekrények majd mindegyike a párolgás hőelvonó hatásán alapszik. A belsejében folyadékot párologtatnak el a hűtőpanelben. Ez hűti a hűtő belsejét.<br> Az elpárolgott folyadék gőzét a hűtő hátoldalán lévő kompresszor összenyomja, amitől az cseppfolyósodik, miközben hőt ad le. Ezért meleg a hűtők hátulja. Fontos tudni, hogy amikor egy folyadék gőze lecsapódik, akkor hőt ad le a környezetének.<br><br></p>",
+  leftImage:"tt_k074.jpg"
+},
+
+{
+  question: "<p>Nyári melegben az italunkat tovább tarthatjuk hidegen, ha egy nedves törülközőbe vagy pólóba belecsavarjuk. <br><br>Mi ennek a magyarázata?<br><br></p>",
+  type: "single",
+  options: ["A törülköző elszigeteli a meleget","A nedves törülköző párolgása hőt von el az italtól","A víz lehűti az üveget","A levegő nem éri az italt"],
+  correct: [1],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>A párolgás magasabb hőmérsékleten gyorsabb, és ha nagyobb a párolgó felület, akkor is gyorsabban párolog a folyadék. A víz párolgását a páratartalom is befolyásolja. Ha magasabb a  páratartalom, lassabb a párolgás.<br> A párolgás endoterm folyamat. A párolgó folyadék hőmérséklete csökken, ezért hőt von el a környezetétől. Nyári melegben fürdünk egy kellemes vízhőmérsékletű tóban, medencében, tengerben. Amikor kijövünk a vízből, hűvöset érzünk. A párolgó víz hűti a testünket. A hűtőszekrények majd mindegyike a párolgás hőelvonó hatásán alapszik. A belsejében folyadékot párologtatnak el a hűtőpanelben. Ez hűti a hűtő belsejét.<br> Az elpárolgott folyadék gőzét a hűtő hátoldalán lévő kompresszor összenyomja, amitől az cseppfolyósodik, miközben hőt ad le. Ezért meleg a hűtők hátulja. Fontos tudni, hogy amikor egy folyadék gőze lecsapódik, akkor hőt ad le a környezetének.<br><br></p>",
+  leftImage:"tt_k075.jpg"
+},
+
+{
+  question: "<p>Mi az izzadás szerepe a testhőmérséklet szabályozásában? <br><br></p>",
+  type: "single",
+  options: ["Megakadályozza a hőtermelést","Növeli a test hőmérsékletét","Az izzadság párolgása hőt von el a testtől","Csökkenti a vérkeringést"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>A párolgás magasabb hőmérsékleten gyorsabb, és ha nagyobb a párolgó felület, akkor is gyorsabban párolog a folyadék. A víz párolgását a páratartalom is befolyásolja. Ha magasabb a  páratartalom, lassabb a párolgás.<br> A párolgás endoterm folyamat. A párolgó folyadék hőmérséklete csökken, ezért hőt von el a környezetétől. Nyári melegben fürdünk egy kellemes vízhőmérsékletű tóban, medencében, tengerben. Amikor kijövünk a vízből, hűvöset érzünk. A párolgó víz hűti a testünket. A hűtőszekrények majd mindegyike a párolgás hőelvonó hatásán alapszik. A belsejében folyadékot párologtatnak el a hűtőpanelben. Ez hűti a hűtő belsejét.<br> Az elpárolgott folyadék gőzét a hűtő hátoldalán lévő kompresszor összenyomja, amitől az cseppfolyósodik, miközben hőt ad le. Ezért meleg a hűtők hátulja. Fontos tudni, hogy amikor egy folyadék gőze lecsapódik, akkor hőt ad le a környezetének.<br><br></p>",
+  leftImage:"tt_k076.jpg"
+},
+
+{
+  question: "<p>A kutyák nem tudnak izzadni. Nagy melegben a nyelvüket lógatva intenzíven lihegnek. <br><br> Milyen módon járul ez hozzá testhőmérsékletük szabályozásához? <br><br></p>",
+  type: "single",
+  options: ["így több oxigénhez jutnak","a nyelvükön elpárolgó nedvesség hűti a testüket","így gyorsabban lélegeznek"],
+  correct: [1],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>A párolgás magasabb hőmérsékleten gyorsabb, és ha nagyobb a párolgó felület, akkor is gyorsabban párolog a folyadék. A víz párolgását a páratartalom is befolyásolja. Ha magasabb a  páratartalom, lassabb a párolgás.<br> A párolgás endoterm folyamat. A párolgó folyadék hőmérséklete csökken, ezért hőt von el a környezetétől. Nyári melegben fürdünk egy kellemes vízhőmérsékletű tóban, medencében, tengerben. Amikor kijövünk a vízből, hűvöset érzünk. A párolgó víz hűti a testünket. A hűtőszekrények majd mindegyike a párolgás hőelvonó hatásán alapszik. A belsejében folyadékot párologtatnak el a hűtőpanelben. Ez hűti a hűtő belsejét.<br> Az elpárolgott folyadék gőzét a hűtő hátoldalán lévő kompresszor összenyomja, amitől az cseppfolyósodik, miközben hőt ad le. Ezért meleg a hűtők hátulja. Fontos tudni, hogy amikor egy folyadék gőze lecsapódik, akkor hőt ad le a környezetének.<br><br></p>",
+  leftImage:"tt_k077.jpg"
+},
+
+{
+  question: "<p>A Földközi-tengerbe sok folyó szállít édesvizet. A folyók által szállított édesvíz mennyisége azonban kisebb, mint az elpárolgó vízmennyiség. A tenger vízszintje azonban nem csökken. <br><br>Honnan érkezik a pótlás? <br><br></p>",
+  type: "single",
+  options: ["a tengerfenék vizet bocsát ki","az eső pótolja az elpárolgott vizet","a tengervíz nem párolog","a folyók vizét visszanyeri"],
+  correct: [1],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>A párolgás magasabb hőmérsékleten gyorsabb, és ha nagyobb a párolgó felület, akkor is gyorsabban párolog a folyadék. A víz párolgását a páratartalom is befolyásolja. Ha magasabb a  páratartalom, lassabb a párolgás.<br> A párolgás endoterm folyamat. A párolgó folyadék hőmérséklete csökken, ezért hőt von el a környezetétől. Nyári melegben fürdünk egy kellemes vízhőmérsékletű tóban, medencében, tengerben. Amikor kijövünk a vízből, hűvöset érzünk. A párolgó víz hűti a testünket. A hűtőszekrények majd mindegyike a párolgás hőelvonó hatásán alapszik. A belsejében folyadékot párologtatnak el a hűtőpanelben. Ez hűti a hűtő belsejét.<br> Az elpárolgott folyadék gőzét a hűtő hátoldalán lévő kompresszor összenyomja, amitől az cseppfolyósodik, miközben hőt ad le. Ezért meleg a hűtők hátulja. Fontos tudni, hogy amikor egy folyadék gőze lecsapódik, akkor hőt ad le a környezetének.<br><br></p>",
+  leftImage:"tt_k078.jpg"
+},
+
+{
+  question: "<p>Az eső a tengerek, óceánok sós vizének elpárolgásából keletkezik. <br><br>Miért nem sós az esővíz? <br><br></p>",
+  type: "single",
+  options: ["A só kicsapódik a felhőkben","A só elbomlik párolgáskor","Csak a víz párolog el, a só visszamarad","A levegő kiszűri a sót"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>A párolgás magasabb hőmérsékleten gyorsabb, és ha nagyobb a párolgó felület, akkor is gyorsabban párolog a folyadék. A víz párolgását a páratartalom is befolyásolja. Ha magasabb a  páratartalom, lassabb a párolgás.<br> A párolgás endoterm folyamat. A párolgó folyadék hőmérséklete csökken, ezért hőt von el a környezetétől. Nyári melegben fürdünk egy kellemes vízhőmérsékletű tóban, medencében, tengerben. Amikor kijövünk a vízből, hűvöset érzünk. A párolgó víz hűti a testünket. A hűtőszekrények majd mindegyike a párolgás hőelvonó hatásán alapszik. A belsejében folyadékot párologtatnak el a hűtőpanelben. Ez hűti a hűtő belsejét.<br> Az elpárolgott folyadék gőzét a hűtő hátoldalán lévő kompresszor összenyomja, amitől az cseppfolyósodik, miközben hőt ad le. Ezért meleg a hűtők hátulja. Fontos tudni, hogy amikor egy folyadék gőze lecsapódik, akkor hőt ad le a környezetének.<br><br></p>",
+  leftImage:"tt_k078.jpg"
+},
+
+{
+  question: "<p>Egy nyitott edénybe sós vizet töltünk. <br><br>Hogyan változik az oldat sókoncentrációja az idő múlásával? <br><br></p>",
+  type: "single",
+  options: ["Csökken","Nem változik","Nő","Először nő, majd csökken"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>A párolgás magasabb hőmérsékleten gyorsabb, és ha nagyobb a párolgó felület, akkor is gyorsabban párolog a folyadék. A víz párolgását a páratartalom is befolyásolja. Ha magasabb a  páratartalom, lassabb a párolgás.<br> A párolgás endoterm folyamat. A párolgó folyadék hőmérséklete csökken, ezért hőt von el a környezetétől. Nyári melegben fürdünk egy kellemes vízhőmérsékletű tóban, medencében, tengerben. Amikor kijövünk a vízből, hűvöset érzünk. A párolgó víz hűti a testünket. A hűtőszekrények majd mindegyike a párolgás hőelvonó hatásán alapszik. A belsejében folyadékot párologtatnak el a hűtőpanelben. Ez hűti a hűtő belsejét.<br> Az elpárolgott folyadék gőzét a hűtő hátoldalán lévő kompresszor összenyomja, amitől az cseppfolyósodik, miközben hőt ad le. Ezért meleg a hűtők hátulja. Fontos tudni, hogy amikor egy folyadék gőze lecsapódik, akkor hőt ad le a környezetének.<br><br></p>",
+  leftImage:"tt_k079.jpg"
+},
+
+{
+  question: "<p>Ha valamely anyag gőze eléggé lehűl, akkor folyékonnyá válik. Ez a jelenség a lecsapódás, amely a párolgással ellentétes folyamat. A felhőket és a lábasból felemelkedő párát is mikroszkopikus méretű vízcseppek alkotják, amelyek levegőben lévő vízgőzből csapódnak le.  <br><br> Miért lesz párás az üveg, ha rálehelünk?<br><br></p>",
+  type: "single",
+  options: ["Az üveg lehűti a levegőt","A lehelet vízgőze az üveg hideg felületén lecsapódik","A leheletben lévő víz megfagy","A levegő páratartalma csökken"],
+  correct: [1],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br>A párolgás magasabb hőmérsékleten gyorsabb, és ha nagyobb a párolgó felület, akkor is gyorsabban párolog a folyadék. A víz párolgását a páratartalom is befolyásolja. Ha magasabb a  páratartalom, lassabb a párolgás.<br> A párolgás endoterm folyamat. A párolgó folyadék hőmérséklete csökken, ezért hőt von el a környezetétől. Nyári melegben fürdünk egy kellemes vízhőmérsékletű tóban, medencében, tengerben. Amikor kijövünk a vízből, hűvöset érzünk. A párolgó víz hűti a testünket. A hűtőszekrények majd mindegyike a párolgás hőelvonó hatásán alapszik. A belsejében folyadékot párologtatnak el a hűtőpanelben. Ez hűti a hűtő belsejét.<br> Az elpárolgott folyadék gőzét a hűtő hátoldalán lévő kompresszor összenyomja, amitől az cseppfolyósodik, miközben hőt ad le. Ezért meleg a hűtők hátulja. Fontos tudni, hogy amikor egy folyadék gőze lecsapódik, akkor hőt ad le a környezetének.<br><br></p>",
+  leftImage:"tt_k0791.jpg"
+},
+
+{
+  question: "<p>Miért látjuk a leheletünket télen, de nyáron nem?<br><br></p>",
+  type: "single",
+  options: ["Télen több vízgőzt lélegzünk ki","Nyáron gyorsabban párolog a lehelet","Télen a vízgőz lecsapódik az alacsony hőmérséklet miatt","Nyáron a levegő nem tartalmaz vizet"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Miért látszik a leheletünk télen?<br><br></p>",
+  leftImage:"tt_k0792.jpg"
+},
+
+{
+  question: "<p>Miért látható vízpára hűvös, szélcsendes hajnalokon tavak és folyók felett?<br><br></p>",
+  type: "single",
+  options: ["A víz forrni kezd","A levegőből víz csapódik ki a hidegben","A víz elpárolog és azonnal lecsapódik","A folyók gőzt bocsátanak ki"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Minden folyadék minden hőmérsékleten párolog. A  párolgás a  folyadék felszínén megy végbe. A párolgás sebességét különböző tényezők befolyásolják, többek között a folyadék anyaga, a párolgó felület nagysága, a hőmérséklet és a páratartalom. Az a folyadék párolog gyorsabban, amelynek alacsonyabb a forráspontja. <br><br></p>",
+  leftImage:"tt_k0793.jpg"
+},
+
+]
+let currentQuestion = 0;
+
+function initQuiz(){ buildNavigator(); buildQuestions(); showQuestion(0); }
+
+function buildNavigator(){
+  const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+  quizData.forEach((q,i)=>{
+    const span=document.createElement("span"); span.className="qn"; span.innerText=i+1;
+    span.onclick=()=>showQuestion(i);
+    nav.appendChild(span);
+  });
+}
+
+function buildQuestions(){
+  const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+  quizData.forEach((q,i)=>{
+    const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+    div.innerHTML=`<p><strong>${q.question||""}</strong></p>`;
+    div.appendChild(buildInputs(q,i));
+    div.appendChild(buildButtons(i));
+    quiz.appendChild(div);
+  });
+}
+
+function buildInputs(q,i){
+  const wrap=document.createElement("div");
+  if(q.type === "dropdown-multiple-sentences"){
+    let optIndex = 0;
+    const sentences = q.sentences;
+
+    sentences.forEach(sentence => {
+        const line = document.createElement("div");
+        line.className = "dropdown-sentence";
+
+        const words = sentence.text.split(" ");
+        words.forEach((word, wi) => {
+            if(sentence.blanks.includes(wi)){
+                const select = document.createElement("select");
+                select.dataset.optIndex = optIndex;
+                select.innerHTML = "<option value=''>Válassz...</option>";
+
+                q.options[optIndex].forEach((opt, oi) => {
+                    const optionElem = document.createElement("option");
+                    optionElem.value = oi;
+                    optionElem.textContent = opt;
+                    select.appendChild(optionElem);
+                });
+
+                select.onchange = () => updateStatus(i);
+
+                line.appendChild(select);
+                line.appendChild(document.createTextNode(" "));
+                optIndex++;
+
+            } else {
+                line.appendChild(document.createTextNode(word + " "));
+            }
+        });
+
+        wrap.appendChild(line);
+    });
+}
+else if(q.type==="dropdown"){
+    const select=document.createElement("select"); select.id=`sel${i}`;
+    select.innerHTML="<option value=''>Válassz...</option>";
+    q.options.forEach((opt,j)=>{ const op=document.createElement("option"); op.value=j; op.textContent=opt; select.appendChild(op); });
+    select.onchange=()=>updateStatus(i);
+    wrap.appendChild(select);
+  } else if(q.type==="single"){
+    q.options.forEach((opt,j)=>{
+      const label=document.createElement("label"); label.style.display="block";
+      label.innerHTML=`<input type="radio" name="q${i}" value="${j}"> ${opt}`;
+      label.querySelector("input").onchange=()=>updateStatus(i);
+      wrap.appendChild(label);
+    });
+  } else if(q.type==="multi"){
+    q.options.forEach((opt,j)=>{
+      const label=document.createElement("label"); label.style.display="block";
+      label.innerHTML=`<input type="checkbox" name="q${i}" value="${j}"> ${opt}`;
+      label.querySelector("input").onchange=()=>updateStatus(i);
+      wrap.appendChild(label);
+    });
+  }
+  return wrap;
+}
+
+function buildButtons(i){
+  const div=document.createElement("div"); div.className="question-buttons";
+  const prev=document.createElement("button"); prev.textContent="Előző"; prev.onclick=()=>showQuestion(i-1); if(i===0) prev.style.display="none";
+  const next=document.createElement("button"); next.textContent="Következő"; next.onclick=()=>showQuestion(i+1); if(i===quizData.length-1) next.style.display="none";
+  div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function showQuestion(n){
+  currentQuestion=n;
+  document.querySelectorAll(".question").forEach(d=>d.classList.remove("active"));
+  document.getElementById(`q${n}`).classList.add("active");
+  updateLeftPanel(n);
+  document.getElementById("finishBtn").style.display=(n===quizData.length-1)?"inline-block":"none";
+}
+
+function updateLeftPanel(i){
+  const q = quizData[i];
+  const left = document.getElementById("left-panel");
+
+  left.innerHTML = `<h2>Párolgás - lecsapódás</h2>`;
+
+  if(q.leftText){
+      const div = document.createElement("div");
+      div.innerHTML = q.leftText;
+      left.appendChild(div);
+  }
+
+  if(q.leftImage){
+      const img = document.createElement("img");
+      img.src = q.leftImage;
+      left.appendChild(img);
+      addZoomable();
+  }
+}
+
+function updateStatus(i){
+  const btn=document.querySelectorAll(".qn")[i];
+  const q=quizData[i];
+
+  if(q.type==="dropdown-multiple-sentences" || q.type==="dropdown"){
+    const selects=document.querySelectorAll(`#q${i} select`);
+    let total=selects.length, filled=0;
+    selects.forEach(s=>{ if(s.value!=="") filled++; });
+    if(filled===0) btn.style.backgroundColor="red";
+    else if(filled<total) btn.style.backgroundColor="orange";
+    else btn.style.backgroundColor="green";
+    return;
+  }
+
+  const sel=[...document.querySelectorAll(`input[name='q${i}']`)].filter(x=>x.checked).map(x=>Number(x.value));
+  if(sel.length===0){ btn.style.backgroundColor="red"; return;}
+  if(q.type==="single"){ btn.style.backgroundColor="green"; return;}
+  if(q.type==="multi"){ btn.style.backgroundColor=sel.length<q.correct.length?"orange":"green";}
+}
+
+document.getElementById("finishBtn").addEventListener("click", finishQuiz);
+document.getElementById("restartBtn").addEventListener("click", restartQuiz);
+
+function finishQuiz(){
+  let totalScore=0;
+  quizData.forEach((q,i)=>{
+    let questionScore=0;
+    const wrap=document.getElementById(`q${i}`);
+
+    if(q.type==="dropdown-multiple-sentences"){
+      const selects=[...wrap.querySelectorAll("select")];
+      selects.forEach(s=>{
+        const idx=Number(s.dataset.optIndex);
+        if(s.value !== "" && Number(s.value) === q.correct[idx]) questionScore++;
+      });
+    } else if(q.type==="dropdown"){
+      const sel=wrap.querySelector("select");
+      if(sel.value !== "" && Number(sel.value)===q.correct[0]) questionScore=1;
+    } else if(q.type==="single"){
+      const sel=[...wrap.querySelectorAll(`input[name='q${i}']`)].filter(x=>x.checked).map(x=>Number(x.value));
+      if(arraysEqual(sel,q.correct)) questionScore=1;
+    } else if(q.type==="multi"){
+      const sel = [...wrap.querySelectorAll(`input[name='q${i}']`)]
+                    .filter(x=>x.checked).map(x=>Number(x.value));
+      const correctSelected = sel.filter(v=>q.correct.includes(v)).length;
+      const incorrectSelected = sel.filter(v=>!q.correct.includes(v)).length;
+      questionScore = correctSelected - incorrectSelected;
+      if(questionScore < 0) questionScore = 0;
+      if(questionScore > (q.points || 1)) questionScore = q.points;
+    }
+
+    totalScore += questionScore;
+    wrap.dataset.questionScore = questionScore;
+  });
+
+  document.getElementById("resultText").innerHTML=
+    `Összpontszám: ${totalScore} / ${quizData.reduce((a,b)=>a+(b.points||1),0)}<br>`+
+    quizData.map((q,i)=>`Kérdés ${i+1}: ${document.getElementById(`q${i}`).dataset.questionScore || 0} pont`).join("<br>");
+
+  document.getElementById("quiz-container").style.display="none";
+  document.getElementById("resultPage").style.display="block";
+}
+
+function restartQuiz(){
+  document.querySelectorAll("select").forEach(s=>s.value="");
+  document.querySelectorAll("input[type=radio],input[type=checkbox]").forEach(inp=>inp.checked=false);
+  document.querySelectorAll(".qn").forEach(btn=>btn.style.backgroundColor="red");
+  currentQuestion=0; showQuestion(0);
+  document.getElementById("quiz-container").style.display="flex";
+  document.getElementById("resultPage").style.display="none";
+}
+
+function arraysEqual(a,b){ if(a.length!==b.length) return false; const sa=[...a].sort(), sb=[...b].sort(); return sa.every((v,i)=>v===sb[i]); }
+
+const overlay=document.getElementById("image-overlay");
+const overlayImg=document.getElementById("overlay-img");
+function addZoomable(){ const img=document.querySelector("#left-panel img"); if(!img) return; img.onclick=()=>{ overlayImg.src=img.src; overlay.style.display="flex"; setTimeout(()=>overlayImg.style.transform="scale(1)",10); }; }
+overlay.onclick=()=>{ overlayImg.style.transform="scale(0.7)"; setTimeout(()=>overlay.style.display="none",300); };
+
+initQuiz();
+</script>
+</body>
+</html>

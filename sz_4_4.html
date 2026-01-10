@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Szövegértés kvíz - 4. osztály (15 kérdés)</title>
+<style>
+#quiz-container { display:flex; flex-direction:row; max-width:1200px; margin:auto; font-family:Arial,sans-serif; gap:0; }
+#quiz-container > div { padding:20px; }
+#quiz-container .left { width:50%; border-right:2px solid #ddd; max-height:80vh; overflow-y:auto; }
+#quiz-container .right { width:50%; display:flex; flex-direction:column; max-height:80vh; }
+#quiz-container .right .quiz-header { position: sticky; top:0; background-color:white; z-index:10; padding-bottom:10px; border-bottom:1px solid #ccc; }
+#quiz-container .right .quiz-questions { overflow-y:auto; flex-grow:1; position:relative; }
+#question-navigator { margin-bottom:10px; }
+#question-navigator .qn { display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; border-radius:50%; background-color:red; color:white; margin-right:5px; cursor:pointer; }
+#question-navigator .qn.answered { background-color:green; }
+.question { display:none; }
+.question.active { display:block; }
+.question-buttons { display:flex; justify-content:space-between; margin-top:10px; }
+#result { display:none; font-size:1.2em; color:blue; margin-top:20px; }
+#restartBtn { display:none; margin-top:10px; padding:10px 20px; }
+@media (max-width:768px) { #quiz-container { flex-direction:column; } #quiz-container .left,#quiz-container .right { width:100%; max-height:none; border-right:none; } }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left">
+    <h2>Világszép Ilonka</h2>
+    <p><i>1. rész</i><p><p>Volt egyszer egy szegény ember, s annak egy leánya. Ez a leány olyan szép volt, hogy messze földről csodájára jártak. A szépségéért el is nevezték Világszép Ilonkának.<p>
+Addig beszéltek a népek Világszép Ilonkáról, hogy a királynak is, aki éppen
+házasulandó legény volt, fülébe jutott a híre, s attól fogvást nem volt nyugodalma
+sem éjjel, sem nappal. Volt az udvarban egy festő, s ennek azt mondta a király:<p>
+– Menj el ahhoz a Világszép Ilonkához, s fesd le nekem, hadd lám, csakugyan
+olyan szép-e, amint mondják! Mert ha olyan, Isten, Krisztus úgy segéljen, feleségül veszem.<p>
+Elment a festő, fölkereste Világszép Ilonkát, lefestette, s hazavitte a képet
+a királynak.<p>
+– Itt van, felséges királyom, éppen szakasztott ilyen, mint a kép. Magam se
+láttam ilyen szépet, mióta e világra születtem.<p>
+Nézi, nézi a király a képet, s szeme-szája tátva maradt a nagy erős csodálkozástól. Mindjárt hívatta az udvarmestert, megparancsolta, hogy fogasson be hat
+bársonyhintóba, s hozassa el Világszép Ilonkát az egész nemzetségével.<p>
+No, azt bizony könnyen elhozhatták. Elég lett volna egy hintó is, mert Világszép Ilonkának
+az apján kívül senkije sem volt. Szépen beleültették a hintóba Ilonkát, az apja felült a bakra, a kocsis mellé, s azzal megindultak a király városába. Mentek, hol lassan, hol sebesen, s egyszer aztán belekerültek egy nagy rengeteg erdőbe. Amint az erdőben haladnak, csak elébük toppan egy vén cigányasszony a leányával. Csúf volt mind a kettő, mint az ördög. A vénasszony megállítja a kocsist.<p>
+– Állj meg, kocsis, végy fel a hintóba, s bizony megszolgálom!<p>
+– Félre az útból, vén boszorkány! – rikkantott rá a kocsis. – Tudod-e, hogy ez
+a király hintója?!<p>
+Hallja ezt a beszédet Világszép Ilonka, kihajlik a hintóból, s mondja:<p>
+– Csak hagyjad, hadd üljenek fel, azt akarom, hogy a mai nap mindenkinek
+jó nap legyen!<p>
+Azzal felültette magával szemközt a cigányasszonyt s a leányát, a kocsis pedig
+továbbhajtott. Kevés idő múlva egy nagy folyóhoz értek. A vén cigányasszony
+itt nagy hirtelenséggel megfogta Világszép Ilonkát, kivette két szemét, s azzal
+a folyóba lökte. A kocsis meg a szegény ember semmit sem vettek észre, s hajtottak tovább.<p>
+Hazaérnek a király udvarába, s szalad a király a hintó elé, hogy levegye a
+Világszép Ilonkát. Haj de szinte kőbálvánnyá változott, mikor meglátta a vén
+banyát s leányát.<p>
+– Hiszen ez a világcsúf leány nem a Világszép Ilonka! – kiáltott a király szörnyű haraggal.<p>
+Nézi a szegény ember, nézi a kocsis is. Mennyre-földre esküdöznek, hogy
+ők Világszép Ilonkát hozták, s ez a világcsúf leány csak az erdőben ült fel a
+hintóba. De a vénasszony is mennyre-földre esküdött, hogy ő a szegény ember
+felesége, az a leány meg az ő leánya, Világszép Ilonka, csak az úton egy kicsit
+megfeketedett.<p>
+– Jól van – mondá a király –, most már a szavamat meg nem másítom. Ha
+szépségében feleségül akartam venni, feleségül veszem csúfságában is, de téged, szegény ember, sírig tartó tömlöcbe vettetlek, amiért nem vigyáztál a leányod szépségére.<p>
+Eleget beszélt a szegény ember, hogy egész úton le sem eresztették a hintó
+födelét, hogy nap sem sütött a leányára, hogy az ő leányát elvesztette ez a vén
+boszorkány, de emezek még jobban győzték szóval, s a király nekik hitt, a szegény embert pedig tömlöcbe vettette.<p><p>
+  </div>
+  <div class="right">
+    <div class="quiz-header">
+      <h2>Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+    <button id="finishBtn" onclick="finishQuiz()" style="margin-top:10px; padding:10px 20px; display:none;">Lezárás</button>
+    <div id="result"></div>
+    <button id="restartBtn" onclick="restartQuiz()">Vissza</button>
+  </div>
+</div>
+<script>
+  if (sessionStorage.getItem("auth") !== "ok") {
+    window.location.href = "login.html";
+  }
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+
+const quizData = [
+
+{question:"1. Miért nevezték Világszép Ilonkának a lányt?", 
+options:["Mert nagyon ügyesen főzött",
+"Mert nagyon szépen táncolt",
+"Mert messze földről is csodájára jártak",
+"Mert királyi családból származott"], 
+correct:2},
+
+{question:"2. Ki hallotta meg Ilonka hírét, és nem volt nyugodalma tőle?",
+options:["A szomszédasszony",
+"A király",
+"A festő",
+"A kocsis"],
+ correct:1},
+
+{question:"3. Mit kért a király a festőtől?",
+ options:["Hogy vigye hozzá Ilonkát",
+"Hogy építsen neki egy várat",
+"Hogy fesse le Ilonkát",
+"Hogy tanítsa festeni a leányt"],
+correct:2},
+
+{question:"4. Mit gondolt a festő Ilonkáról?", 
+options:["Nem találta különösebben szépnek",
+"Csúnyábbnak látta, mint mesélték",
+"Ugyanolyan szépnek látta, mint a képen",
+"Sokkal idősebbnek tűnt"], 
+correct:2},
+
+{question:"5. Hány hintót rendelt a király Ilonka elhozására?", 
+options:["Egyet",
+"Kettőt",
+"Hármat",
+"Hatot"], 
+correct:3},
+
+{question:"Ki ment Ilonkával a hintóban?", 
+options:["Az édesanyja",
+"A testvérei",
+"Csak az apja",
+"A királyné"],
+ correct:2},
+
+{question:"7. Mit kért a vén cigányasszony a hintónál?",
+ options:["Pénzt"
+,"Ételt",
+"Hogy felvehessék őket",
+"Hogy kísérjék őket haza"],
+ correct:2},
+
+{question:"8. Mit mondott Ilonka, amikor a kocsis el akarta küldeni a cigányasszonyt?",
+ options:["Hogy zavarja őket",
+"Hogy siessenek tovább",
+"Hogy mindenkinek legyen jó napja",
+"Hogy ne vegyék fel őket"],
+ correct:2},
+
+{question:"9. Mi történt a folyónál?",
+ options:["A hintó felborult",
+"A cigányasszony meglopta őket",
+"Ilonka elaludt",
+"A cigányasszony kivette Ilonka két szemét és a folyóba lökte"], 
+correct:3},
+
+{question:"10. Ki nem vette észre a bűntényt?", 
+options:["A király",
+"A festő",
+"A kocsis és Ilonka apja",
+"A cigányasszony leánya"],
+correct:2},
+
+{question:"11. Miért lett dühös a király, amikor megérkezett a hintó?", 
+options:["Mert későn értek oda",
+"Mert a kocsis megrongálta a hintót",
+"Mert nem Ilonkát látta benne",
+"Mert elveszett a festmény"], 
+correct:2},
+
+{question:"12. Mit állított a vén cigányasszony?", 
+options:["Hogy ő a királyné",
+"Hogy ő Ilonka nagymamája",
+"Hogy ő a szegény ember felesége, és a lánya Ilonka",
+"Hogy ő találta meg Ilonkát az erdőben"],
+correct:2},
+
+{question:"13. Mivel magyarázta a cigányasszony, hogy lánya megfeketedett?", 
+ options:["A hosszú út miatt",
+"Az erdőben megették őket a szúnyogok",
+"A folyóban megmártózott",
+"Csak az úton történt vele valami"], 
+correct:0},
+
+{question:"14. Mit tett a király a szegény emberrel?",
+ options:["Hazaküldte",
+"Megjutalmazta",
+"Tömlöcbe vettette",
+"Királyi tanácsadóvá tette"], 
+correct:2},
+
+{question:"15. Mit próbált elmondani a szegény ember a királynak?", 
+options:["Hogy ő is festő",
+"Hogy Ilonka beteg volt",
+"Hogy nem sütött rá a nap, s a leányát elcserélték",
+"Hogy a kocsis hibázott"], 
+correct:2}
+];
+
+const navDiv = document.getElementById("question-navigator");
+quizData.forEach((q,i)=>{
+  const span = document.createElement('span');
+  span.className='qn';
+  span.innerText=i+1;
+  span.addEventListener('click',()=> showQuestion(i));
+  navDiv.appendChild(span);
+});
+
+const quizDiv = document.getElementById("quiz");
+quizData.forEach((q,index)=>{
+  let html = `<div class='question' id='q${index}'><p><strong>${q.question}</strong></p>`;
+  q.options.forEach((opt,i)=>{
+    html+=`<label style='display:block;margin-left:10px;'><input type='radio' name='q${index}' value='${i}'> ${opt}</label>`;
+  });
+  html+=`<div class='question-buttons'><button class='prevBtn' onclick='prevQuestion()'>Előző</button><button class='nextBtn' onclick='nextQuestion()'>Következő</button></div>`;
+  html+="</div>";
+  quizDiv.innerHTML+=html;
+});
+
+let currentQuestion=0;
+document.querySelectorAll('.question').forEach((q,i)=>{
+  if(i===0) q.querySelector('.prevBtn').style.display='none';
+  if(i===quizData.length-1) q.querySelector('.nextBtn').style.display='none';
+});
+document.getElementById(`q${currentQuestion}`).classList.add('active');
+
+document.querySelectorAll('input[type=radio]').forEach((el)=>{
+  el.addEventListener('change',()=>{
+    const qNum = parseInt(el.name.replace('q',''));
+    document.querySelectorAll('#question-navigator .qn')[qNum].classList.add('answered');
+  });
+});
+
+window.showQuestion = function(n){
+  document.querySelectorAll('.question').forEach(q=>q.classList.remove('active'));
+  document.getElementById(`q${n}`).classList.add('active');
+  currentQuestion=n;
+  document.querySelectorAll('.prevBtn').forEach(b=>b.style.display='inline-block');
+  document.querySelectorAll('.nextBtn').forEach(b=>b.style.display='inline-block');
+  if(n===0) document.getElementById(`q${n}`).querySelector('.prevBtn').style.display='none';
+  if(n===quizData.length-1) document.getElementById(`q${n}`).querySelector('.nextBtn').style.display='none';
+  if(n===quizData.length-1){
+    document.getElementById("finishBtn").style.display="inline-block";
+  } else {
+    document.getElementById("finishBtn").style.display="none";
+  }
+}
+window.prevQuestion = function(){ if(currentQuestion>0) showQuestion(currentQuestion-1); }
+window.nextQuestion = function(){ if(currentQuestion<quizData.length-1) showQuestion(currentQuestion+1); }
+
+window.finishQuiz = function(){
+  let score=0;
+  quizData.forEach((q,index)=>{
+    const answer = document.querySelector(`input[name='q${index}']:checked`);
+    if(answer && Number(answer.value)===q.correct) score++;
+  });
+  document.querySelector('.quiz-questions').style.display="none";
+  document.getElementById("finishBtn").style.display="none";
+  document.querySelector('.quiz-header').style.display="none";
+  document.getElementById("result").style.display="block";
+  document.getElementById("result").innerText=`Eredményed: ${score} / ${quizData.length}`;
+  document.getElementById("restartBtn").style.display="inline-block";
+  document.querySelector('.left').style.display="none";
+}
+
+window.restartQuiz = function(){
+  document.querySelectorAll('input[type=radio]').forEach(el=>el.checked=false);
+  document.querySelectorAll('#question-navigator .qn').forEach(q=>q.classList.remove('answered'));
+  document.querySelector('.quiz-questions').style.display="block";
+  document.querySelector('.quiz-header').style.display="flex";
+  document.querySelector('.left').style.display="block";
+  document.getElementById("result").style.display="none";
+  document.getElementById("restartBtn").style.display="none";
+  currentQuestion=0;
+  showQuestion(0);
+}
+
+showQuestion(0);
+
+});
+</script>
+
+</body>
+</html>

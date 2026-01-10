@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Szövegértés kvíz - 4. osztály (15 kérdés)</title>
+<style>
+#quiz-container { display:flex; flex-direction:row; max-width:1200px; margin:auto; font-family:Arial,sans-serif; gap:0; }
+#quiz-container > div { padding:20px; }
+#quiz-container .left { width:50%; border-right:2px solid #ddd; max-height:80vh; overflow-y:auto; }
+#quiz-container .right { width:50%; display:flex; flex-direction:column; max-height:80vh; }
+#quiz-container .right .quiz-header { position: sticky; top:0; background-color:white; z-index:10; padding-bottom:10px; border-bottom:1px solid #ccc; }
+#quiz-container .right .quiz-questions { overflow-y:auto; flex-grow:1; position:relative; }
+#question-navigator { margin-bottom:10px; }
+#question-navigator .qn { display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; border-radius:50%; background-color:red; color:white; margin-right:5px; cursor:pointer; }
+#question-navigator .qn.answered { background-color:green; }
+.question { display:none; }
+.question.active { display:block; }
+.question-buttons { display:flex; justify-content:space-between; margin-top:10px; }
+#result { display:none; font-size:1.2em; color:blue; margin-top:20px; }
+#restartBtn { display:none; margin-top:10px; padding:10px 20px; }
+@media (max-width:768px) { #quiz-container { flex-direction:column; } #quiz-container .left,#quiz-container .right { width:100%; max-height:none; border-right:none; } }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left">
+    <h2>A kis városi nyomozó kalandja</h2>
+    <p>Egyszer volt, hol nem volt, egy kis városi nyomozó, Vendel, aki mindig kíváncsi volt a körülötte zajló eseményekre. Egy szép tavaszi reggelen az iskolába menet észrevett egy furcsa üzenetet az iskolaudvaron: „Segítség, keress meg!”. Vendel rögtön gyanút fogott, és elhatározta, hogy kideríti, ki hagyta az üzenetet.</p>
+    <p>Először a könyvtárban kérdezősködött, ahol találkozott Dórával, a legjobb barátjával. Dóra elmondta, hogy látta, ahogy egy kis kutya eliszkolt az üzenettel a park felé. Vendel gyorsan követte a kutyát, és észrevette, hogy a park egyik padján egy kis titkos doboz lapul.</p>
+    <p>A dobozban egy térkép volt, amely egy elhagyatott kerthez vezetett. Vendel és Dóra együtt követték a térképet, miközben megoldottak különféle rejtvényeket és nyomokat. Végül a kerthez érve találták meg a rejtett üzenetet és egy kis zsáknyi édességet, amit a városi gyerekeknek szántak, hogy játékkal és cukorkával lepjék meg őket. Vendel rájött, hogy a titkos küldetés egy vidám meglepetés volt a városi közösség számára, és boldogan vitte haza az édességet, miközben új barátokat szerzett a kaland során.</p>
+  </div>
+  <div class="right">
+    <div class="quiz-header">
+      <h2>Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+    <button id="finishBtn" onclick="finishQuiz()" style="margin-top:10px; padding:10px 20px; display:none;">Lezárás</button>
+    <div id="result"></div>
+    <button id="restartBtn" onclick="restartQuiz()">Vissza</button>
+  </div>
+</div>
+<script>
+  if (sessionStorage.getItem("auth") !== "ok") {
+    window.location.href = "login.html";
+  }
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+
+const quizData = [
+{question:"1. Ki a történet főszereplője?", options:["Vendel, a kis városi nyomozó","Dóra","A kiskutya"], correct:0},
+{question:"2. Mikor kezdődött a történet?", options:["Egy téli este","Egy szép tavaszi reggelen","Egy nyári délután"], correct:1},
+{question:"3. Mit talált Vendel az iskolaudvaron?", options:["Egy titkos dobozt","Egy furcsa üzenetet","Egy térképet"], correct:1},
+{question:"4. Ki segített Vendelnek a nyomozásban?", options:["A kutya","Dóra, a legjobb barátja","Az iskola igazgatója"], correct:1},
+{question:"5. Hol látták a kutyát?", options:["A könyvtárban","Az iskolaudvaron","A park felé futva"], correct:2},
+{question:"6. Mit talált Vendel a parkban?", options:["Egy titkos üzenetet","Egy macskát","Egy kosarat"], correct:0},
+{question:"7. Mi volt a dobozban?", options:["Édesség","Térkép","Kulcs"], correct:1},
+{question:"8. Hová vezetett a térkép?", options:["Az iskolába","Egy elhagyatott kerthez","A város főterére"], correct:1},
+{question:"9. Mit kellett tenniük a kertig vezető úton?", options:["Semmit, csak menni","Rejtvényeket és nyomokat megoldani","Futni a kutya után"], correct:1},
+{question:"10. Mit találtak a kertben?", options:["Egy rejtett üzenetet és édességet","Egy elhagyott házat","Egy titkos kincset"], correct:0},
+{question:"11. Mi volt a küldetés célja?", options:["Egy vidám meglepetés a városi gyerekeknek","Egy rejtett kincs felkutatása","Egy kutya megmentése"], correct:0},
+{question:"12. Hogyan érezte magát  Vendel a kaland végén?", options:["Szomorúan","Boldogan","Félt"], correct:1},
+{question:"13. Mit vitt Vendel haza?", options:["Egy titkos üzenetet","Egy zsáknyi édességet","A térképet"], correct:1},
+{question:"14. Milyen új dolgot tanult Vendel a kaland során?", options:["Hogy mindig egyedül kell cselekedni","Hogy a barátokkal könnyebb a kaland","Hogy sosem szabad kíváncsinak lenni"], correct:1},
+{question:"15. Mi volt a történet tanulsága?", options:["A vidám meglepetés és barátság értékes","Csak a gyorsaság számít","A kaland veszélyes és kerülendő"], correct:0}
+];
+
+const navDiv = document.getElementById("question-navigator");
+quizData.forEach((q,i)=>{
+  const span = document.createElement('span');
+  span.className='qn';
+  span.innerText=i+1;
+  span.addEventListener('click',()=> showQuestion(i));
+  navDiv.appendChild(span);
+});
+
+const quizDiv = document.getElementById("quiz");
+quizData.forEach((q,index)=>{
+  let html = `<div class='question' id='q${index}'><p><strong>${q.question}</strong></p>`;
+  q.options.forEach((opt,i)=>{
+    html+=`<label style='display:block;margin-left:10px;'><input type='radio' name='q${index}' value='${i}'> ${opt}</label>`;
+  });
+  html+=`<div class='question-buttons'><button class='prevBtn' onclick='prevQuestion()'>Előző</button><button class='nextBtn' onclick='nextQuestion()'>Következő</button></div>`;
+  html+="</div>";
+  quizDiv.innerHTML+=html;
+});
+
+let currentQuestion=0;
+document.querySelectorAll('.question').forEach((q,i)=>{
+  if(i===0) q.querySelector('.prevBtn').style.display='none';
+  if(i===quizData.length-1) q.querySelector('.nextBtn').style.display='none';
+});
+document.getElementById(`q${currentQuestion}`).classList.add('active');
+
+document.querySelectorAll('input[type=radio]').forEach((el)=>{
+  el.addEventListener('change',()=>{
+    const qNum = parseInt(el.name.replace('q',''));
+    document.querySelectorAll('#question-navigator .qn')[qNum].classList.add('answered');
+  });
+});
+
+window.showQuestion = function(n){
+  document.querySelectorAll('.question').forEach(q=>q.classList.remove('active'));
+  document.getElementById(`q${n}`).classList.add('active');
+  currentQuestion=n;
+  document.querySelectorAll('.prevBtn').forEach(b=>b.style.display='inline-block');
+  document.querySelectorAll('.nextBtn').forEach(b=>b.style.display='inline-block');
+  if(n===0) document.getElementById(`q${n}`).querySelector('.prevBtn').style.display='none';
+  if(n===quizData.length-1) document.getElementById(`q${n}`).querySelector('.nextBtn').style.display='none';
+  if(n===quizData.length-1){
+    document.getElementById("finishBtn").style.display="inline-block";
+  } else {
+    document.getElementById("finishBtn").style.display="none";
+  }
+}
+window.prevQuestion = function(){ if(currentQuestion>0) showQuestion(currentQuestion-1); }
+window.nextQuestion = function(){ if(currentQuestion<quizData.length-1) showQuestion(currentQuestion+1); }
+
+window.finishQuiz = function(){
+  let score=0;
+  quizData.forEach((q,index)=>{
+    const answer = document.querySelector(`input[name='q${index}']:checked`);
+    if(answer && Number(answer.value)===q.correct) score++;
+  });
+  document.querySelector('.quiz-questions').style.display="none";
+  document.getElementById("finishBtn").style.display="none";
+  document.querySelector('.quiz-header').style.display="none";
+  document.getElementById("result").style.display="block";
+  document.getElementById("result").innerText=`Eredményed: ${score} / ${quizData.length}`;
+  document.getElementById("restartBtn").style.display="inline-block";
+  document.querySelector('.left').style.display="none";
+}
+
+window.restartQuiz = function(){
+  document.querySelectorAll('input[type=radio]').forEach(el=>el.checked=false);
+  document.querySelectorAll('#question-navigator .qn').forEach(q=>q.classList.remove('answered'));
+  document.querySelector('.quiz-questions').style.display="block";
+  document.querySelector('.quiz-header').style.display="flex";
+  document.querySelector('.left').style.display="block";
+  document.getElementById("result").style.display="none";
+  document.getElementById("restartBtn").style.display="none";
+  currentQuestion=0;
+  showQuestion(0);
+}
+
+showQuestion(0);
+
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Tesztek – Kompetencia gyakorló</title>
+
+    <script>
+        if (sessionStorage.getItem("auth") !== "ok") {
+            window.location.href = "login.html";
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        header {
+            background: #007acc;
+            color: white;
+            padding: 30px;
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        /* A csoportosító doboz stílusa */
+        details {
+            background: white;
+            margin-bottom: 15px;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            overflow: hidden;
+            transition: 0.3s;
+        }
+
+        /* A fejléc (amire kattintunk) */
+        summary {
+            padding: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #007acc;
+            cursor: pointer;
+            list-style: none; /* Alapértelmezett nyíl eltüntetése */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            outline: none;
+        }
+
+        /* Egyedi nyíl hozzáadása */
+        summary::after {
+            content: '▼';
+            font-size: 14px;
+            transition: 0.3s;
+        }
+
+        details[open] summary::after {
+            transform: rotate(180deg);
+        }
+
+        summary:hover {
+            background-color: #f0f8ff;
+        }
+
+        /* A tartalom listája */
+        ul {
+            list-style: none;
+            padding: 0 20px 20px 20px;
+            margin: 0;
+        }
+
+        li {
+            background: #e8f4ff;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            transition: 0.2s;
+        }
+
+        li:hover {
+            background: #d2ebff;
+            transform: translateX(5px);
+        }
+
+        li a {
+            display: block;
+            padding: 12px 15px;
+            text-decoration: none;
+            color: #005a99;
+            font-weight: 500;
+        }
+
+        /* Animáció a lenyíláshoz */
+        details[open] ul {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    Kompetencia gyakorló tesztek
+</header>
+
+<div class="container">
+
+    <details>
+        <summary>Matematika tesztek</summary>
+        <ul>
+            <li><a href="m_4_2/m_4_2.html">Matematika kompetencia 4. osztály – 15 egyszerű kérdés</a></li>
+            <li><a href="m_4_1.html">Matematika kompetencia gyakorló feladatsor 4. osztályosoknak</a></li>
+            <li><a href="m_3szog/3_szog.html">Háromszögek (próba)</a></li>
+            <li><a href="thalesz/thalesz.html">Thalész-tétel gyakorló</a></li>
+        </ul>
+    </details>
+
+<details>
+        <summary>Környezetismeret tesztek</summary>
+        <ul>
+            <li><a href="korny/parosito.html">Állatok rendeszerezése</a></li>
+            <li><a href="korny/parosito_time.html">Játék időre - Állatok csoportosítása</a></li>
+                    </ul>
+    </details>
+
+<details>
+        <summary>Nyelvtan</summary>
+        <ul>
+            <li><a href="szofajok.html">Szófajok csoportosítása</a></li>
+                              </ul>
+    </details>
+<details>
+        <summary>KRESZ</summary>
+        <ul>
+            <li><a href="kresz/kresz.html">Kresz táblák gyakorlása</a></li>
+                              </ul>
+    </details>
+
+    <details>
+        <summary>Szövegértés tesztek</summary>
+        <ul>
+            <li><a href="sz_4_1.html">Szövegértés 4. - Kutyafülűek</a></li>
+            <li><a href="sz_4_2.html">Szövegértés 4. - A kis városi nyomozó kalandja</a></li>
+            <li><a href="sz_4_4.html">Szövegértés 4. - Világszép Ilonka</a></li>
+            <li><a href="sz_4_5.html">Szövegértés 4. - A téli tücsök meséi</a></li>
+	    <li><a href="szk13/szk_13.html">A Rejtélyes Mézeskalács Receptje</a></li>
+	    <li><a href="szk12/sz12.html">A Visszhangok Világítótornya</a></li>
+	    <li><a href="szk11/szk_01.html">Az Elfeledett Óraműves Története</a></li>
+        </ul>
+    </details>
+
+<details>
+        <summary>Szövegértés és matematika</summary>
+        <ul>
+            <li><a href="szk14/szk14.html">Osztálykirándulás</a></li>
+	    <li><a href="szk15/sz15.html">Irány a világűr!</a></li>
+	    <li><a href="szk16/sz16.html">Családi sportnap</a></li>
+	    <li><a href="szk17/sz17.html">Állatkerti kalandozás</a></li>
+            
+        </ul>
+    </details>
+
+<details>
+        <summary>Vaktérképes feladatok</summary>
+        <ul>
+            <li><a href="terkep/varmegye.html">Magyarország vármegyéi</a></li> 
+	    <li><a href="terkep/vilagterkep.html">Földrészek és óceánok</a></li> 
+	    <li><a href="terkep/szomszed.html">Szomszédos országok</a></li>  
+	    <li><a href="terkep/szolnokmegye.html">Jász-Nagykun-Szolnok vármegye települései</a></li>
+	     <li><a href="terkep/europa.html">Európa kvíz</a></li>       
+        </ul>
+    </details>
+
+
+    <details>
+        <summary>Természettudomány</summary>
+        <ul>
+            <li><a href="tt_6_1/tt_6_1.html">Természettudomány - Gyakorló feladatok 6. osztályosoknak</a></li>
+            <li><a href="tt_k01/tt_k1.html">Kompetencia gyakorló - A majonéz rejtélye</a></li>
+            <li><a href="tt_k03/tt_k2.html">Kompetencia gyakorló - Energiaforgalom</a></li>
+            <li><a href="tt_k04/tt_k3.html">Kompetencia gyakorló - Csonttan</a></li>
+            <li><a href="tt_k05/tt_k5.html">Kompetencia gyakorló - Nyári kerékpározás</a></li>
+            <li><a href="tt_k06/tt_k6.html">Kompetencia gyakorló - Torricelli kísérlete</a></li>
+            <li><a href="tt_k07/tt_k7.html">Kompetencia gyakorló - Párolgás, lecsapódás</a></li>
+            <li><a href="tt_k08/tt_k8.html">Kompetencia gyakorló - Légtisztító mohafal Óbudán</a></li>
+            <li><a href="tt_k09/tt_k9.html">Kompetencia gyakorló - A Holt-tenger – az eltűnőben lévő csoda</a></li>
+            <li><a href="bio1/bio_1.html">Biológia - Ábrák (szerkesztés alatt)</a></li>
+	    <li><a href="bio1/viragreszek_m.html">Biológia - A virág részei (szerkesztés alatt)</a></li>
+        </ul>
+    </details>
+
+    <details>
+        <summary>Digitális kultúra tesztek</summary>
+        <ul>
+            <li><a href="i_dia1/i_dia2.html">Digitális kultúra - Diagramok értelmezése</a></li>
+        </ul>
+    </details>
+
+</div>
+
+</body>
+</html>

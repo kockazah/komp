@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Világtérkép – Kattintós párosító</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', sans-serif; margin:0; padding:0; background-color: var(--bg-color); touch-action: manipulation; }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); height: calc(100vh - 40px); overflow: hidden;
+    }
+    
+    /* Bal panel */
+    #quiz-container .left { width:25%; border-right:2px solid var(--border-color); padding: 30px; overflow-y:auto; background-color: #fafafa; }
+    
+    /* Jobb panel konténer */
+    #quiz-container .right { width:75%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden; }
+    
+    .quiz-header { padding-bottom:15px; border-bottom:1px solid var(--border-color); margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; }
+    .quiz-questions { overflow-y:auto; flex-grow:1; }
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { width:32px; height:32px; line-height:32px; text-align:center; border-radius:50%; background-color: var(--danger); color:white; font-weight: bold; cursor:pointer; }
+    
+    .question { display:none; }
+    .question.active { display:block; }
+
+    /* ELRENDEZÉS: Térkép vs Szövegdobozok */
+    .map-task-layout { display: flex; gap: 20px; align-items: flex-start; }
+
+    .map-wrapper { 
+        flex: 5; /* A térkép sokkal nagyobb részt kap */
+        position: relative; 
+        border: 1px solid var(--border-color); 
+        border-radius: var(--radius); 
+        overflow: hidden; 
+        background: white; 
+    }
+
+    .map-side-source { 
+        flex: 0.6; /* A jobb oldali sáv keskenyebb lett */
+        display: flex; 
+        flex-direction: column; 
+        gap: 10px; 
+        background: #f8fafc; 
+        border: 2px dashed #cbd5e1; 
+        padding: 15px; 
+        border-radius: 8px; 
+        min-width: 120px;
+    }
+
+    /* CÉLZÓNÁK: Automatikus mérettel */
+    .map-drop-zone {
+        position: absolute; 
+        min-width: 50px; 
+        min-height: 25px;
+        width: auto; 
+        height: auto;
+        border: 2px dashed var(--primary); 
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 6px; 
+        transform: translate(-50%, -50%); /* Középpontosítás a koordinátán */
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        z-index: 10; 
+        cursor: pointer;
+        padding: 2px;
+        transition: all 0.2s;
+    }
+
+    /* MOZGATHATÓ KÁRTYÁK */
+    .draggable-card { 
+        background: var(--primary); 
+        color: white; 
+        padding: 8px 12px; 
+        border-radius: 6px; 
+        cursor: pointer; 
+        font-size: 0.8rem; 
+        font-weight: 500;
+        text-align: center; 
+        box-shadow: var(--shadow); 
+        border: 2px solid transparent;
+        white-space: nowrap; /* Ne törje meg a szavakat */
+    }
+    .draggable-card.selected { border-color: #000; background-color: var(--warning); transform: scale(1.05); }
+
+    /* EREDMÉNY OLDAL */
+    #resultPage { display:none; padding:60px; text-align:center; max-width: 800px; margin: 50px auto; background: white; border-radius: var(--radius); }
+
+    /* KOORDINÁTA MÉRŐ (Rejtett, átírható block-ra) */
+    #debug-coord { 
+        position: fixed; top: 10px; left: 10px; background: #000; color: #0f0; 
+        padding: 8px; border-radius: 5px; font-family: monospace; z-index: 10000; 
+        display: none; 
+    }
+
+    /* MOBIL NÉZET */
+    @media (max-width: 1024px) {
+        #quiz-container { flex-direction: column; height: auto; margin: 0; border-radius: 0; }
+        #quiz-container .left { display: none; } /* Bal panel elrejtése mobilon */
+        #quiz-container .right { width: 100%; padding: 15px; box-sizing: border-box; }
+        .map-task-layout { flex-direction: column; }
+        .map-wrapper { width: 100%; }
+        .map-side-source { 
+            width: 100%; 
+            flex-direction: row; 
+            flex-wrap: wrap; 
+            box-sizing: border-box; 
+            min-height: auto; 
+        }
+        .draggable-card { flex: 1 1 calc(33% - 10px); font-size: 0.75rem; }
+    }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:20px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    button { padding:12px 24px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+</style>
+</head>
+<body>
+
+<div id="debug-coord">Koordináták: top: 0%, left: 0%</div>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel"></div>
+  <div class="right">
+    <div class="quiz-header">
+      <h2 style="margin:0;">Földrajzi Gyakorló</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultHeader">Eredmény</h1>
+  <div id="resultText"></div>
+  <button id="restartBtn" class="btn-next">Újrakezdés</button>
+</div>
+
+<script>
+const quizData = [
+    {
+        question: "Helyezd el a kontinenseket és az óceánokat a világtérképen!",
+        type: "map-dragdrop",
+        mapImage: "vilagterkep.jpg", 
+        elemek: [
+            { szo: "Európa", kat: "EU", top: "30%", left: "53.2%" },
+            { szo: "Afrika", kat: "AF", top: "45.4%", left: "51.6%" },
+            { szo: "Ázsia", kat: "AS", top: "30.0%", left: "78.5%" },
+            { szo: "Ausztrália", kat: "AU", top: "65.3%", left: "86.5%" },
+            { szo: "Észak-Amerika", kat: "NA", top: "30.0%", left: "20.0%" },
+            { szo: "Dél-Amerika", kat: "SA", top: "56.6%", left: "30.2%" },
+	    { szo: "Antarktisz", kat: "AS", top: "94.8%", left: "76.5%" },
+            { szo: "Csendes-óceán", kat: "AU", top: "56.8%", left: "8.8%" },
+            { szo: "Indiai-óceán", kat: "NA", top: "62%", left: "70.8%" },
+            { szo: "Atlanti-óceán", kat: "SA", top: "38.1%", left: "35.9%" },
+        ],
+        points: 10,
+        leftText: "<h3>Világtérkép feladat</h3><p>Kattints a kontinens vagy az óceán nevére, majd a térképen látható szaggatott keretbe!</p>",
+        leftImage: "vilagterkepes.jpg"
+    }
+];
+
+let selectedPoint = null;
+let currentQuestion = 0;
+
+function initQuiz(){
+    buildNavigator();
+    buildQuestions();
+    showQuestion(0);
+    document.getElementById("restartBtn").onclick = () => location.reload();
+    setupCoordinateDebugger();
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator");
+    nav.innerHTML="";
+    quizData.forEach((_,i)=>{
+        const span=document.createElement("span");
+        span.className="qn"; span.id=`nav-${i}`; span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz");
+    quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div");
+        div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.1rem; margin-bottom: 15px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    if(q.type === "map-dragdrop"){
+        const layout = document.createElement("div");
+        layout.className = "map-task-layout";
+        const mapWrap = document.createElement("div");
+        mapWrap.className = "map-wrapper";
+        mapWrap.innerHTML = `<img src="${q.mapImage}" class="map-bg" style="width:100%; display:block;">`;
+        
+        q.elemek.forEach(el => {
+            const zone = document.createElement("div");
+            zone.className = "map-drop-zone";
+            zone.style.top = el.top; zone.style.left = el.left;
+            zone.dataset.kat = el.kat;
+            zone.onclick = () => handleZoneClick(zone);
+            mapWrap.appendChild(zone);
+        });
+
+        const source = document.createElement("div");
+        source.className = "map-side-source";
+        q.elemek.sort(() => Math.random() - 0.5).forEach((el, ei) => {
+            const card = document.createElement("div");
+            card.className = "draggable-card";
+            card.id = `q${i}-c${ei}`;
+            card.textContent = el.szo;
+            card.dataset.correct = el.kat;
+            card.onclick = (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.draggable-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                selectedPoint = card;
+            };
+            source.appendChild(card);
+        });
+        layout.appendChild(mapWrap);
+        layout.appendChild(source);
+        wrap.appendChild(layout);
+    }
+    return wrap;
+}
+
+function handleZoneClick(zone) {
+    if (selectedPoint) {
+        // Ha már volt benne valami, visszarakjuk az oldalsávba
+        if (zone.children.length > 0) {
+            const oldCard = zone.children[0];
+            document.querySelector('.map-side-source').appendChild(oldCard);
+        }
+        zone.appendChild(selectedPoint);
+        zone.style.borderStyle = "solid"; // Vizuális visszajelzés: teli vonal
+        selectedPoint.classList.remove('selected');
+        updateStatus(currentQuestion);
+        selectedPoint = null;
+    }
+}
+
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    const wrap = document.getElementById(`q${i}`);
+    const q = quizData[i];
+    const placed = wrap.querySelectorAll('.map-drop-zone .draggable-card').length;
+    if(placed === 0) btn.style.backgroundColor = "var(--danger)";
+    else if(placed < q.elemek.length) btn.style.backgroundColor = "var(--warning)";
+    else btn.style.backgroundColor = "var(--success)";
+}
+
+function showQuestion(n){
+    currentQuestion = n;
+    document.querySelectorAll(".question").forEach(d => d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    const q = quizData[n];
+    document.getElementById("left-panel").innerHTML = (q.leftText || "") + (q.leftImage ? `<img src="${q.leftImage}" style="width:100%; margin-top:15px; border-radius:8px;">` : "");
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); prev.textContent="← Vissza"; prev.onclick=()=>showQuestion(i-1);
+    if(i===0) prev.style.visibility="hidden";
+    const next=document.createElement("button");
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Kiértékelés" : "Következő →";
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function finishQuiz(){
+    let score = 0, max = 0;
+    quizData.forEach((q, i) => {
+        const wrap = document.getElementById(`q${i}`);
+        wrap.querySelectorAll(".draggable-card").forEach(c => {
+            if(c.parentElement.dataset.kat === c.dataset.correct) score++;
+        });
+        max += q.elemek.length;
+    });
+    document.getElementById("quiz-container").style.display = "none";
+    document.getElementById("resultPage").style.display = "block";
+    document.getElementById("resultText").innerHTML = `<h2>${Math.round(score/max*100)}%</h2><p>${max} pontból ${score} helyes válasz.</p>`;
+}
+
+function setupCoordinateDebugger() {
+    document.addEventListener('mousedown', function(e) {
+        if (e.target.classList.contains('map-bg')) {
+            const img = e.target;
+            const rect = img.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+            const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
+            const debug = document.getElementById('debug-coord');
+            debug.innerText = `top: "${y}%", left: "${x}%"`;
+            console.log(`top: "${y}%", left: "${x}%"`);
+        }
+    });
+}
+window.onload = initQuiz;
+</script>
+</body>
+</html>

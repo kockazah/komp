@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matematika kompetenciamérés 4. osztály</title>
+<style>
+  body { font-family: Arial, sans-serif; margin:0; padding:0; }
+  .container { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; height: 100vh; padding: 10px; box-sizing: border-box; }
+  .left { border: 1px solid #ccc; padding: 10px; overflow-y: auto; background:#fff; }
+  .right { border: 1px solid #ccc; padding: 10px; display:flex; flex-direction: column; justify-content: space-between; background:#f9f9f9; position:relative; }
+  .question-circles { display:flex; flex-wrap: wrap; gap:5px; margin-bottom:10px; justify-content:center; }
+  .circle { width:30px; height:30px; border-radius:50%; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:bold; }
+  .red { background:#f44336; }
+  .green { background:#4caf50; }
+  .options { display:flex; flex-direction: column; gap:5px; }
+  button { padding:6px 12px; cursor:pointer; border:none; border-radius:5px; }
+  .nav-buttons { display:flex; justify-content: space-between; margin-top:10px; }
+  #finish-btn { position:absolute; top:10px; right:10px; display:none; }
+  .hidden { display:none; }
+  .result { text-align:center; font-size:24px; padding:40px; }
+</style>
+</head>
+<body>
+
+<div id="quiz-container" class="container">
+  <div class="left">
+    <h2>Matematika kompetenciamérés gyakorlás 4. osztály</h2>
+    <div id="task-text"></div>
+  </div>
+  <div class="right">
+    <button id="finish-btn">Lezárás</button>
+    <div>
+      <div class="question-circles" id="question-circles"></div>
+      <div id="question-text" style="font-weight:bold; margin-bottom:10px;"></div>
+      <div class="options" id="options-container"></div>
+    </div>
+    <div class="nav-buttons">
+      <button id="prev-btn">Előző</button>
+      <button id="next-btn">Következő</button>
+    </div>
+  </div>
+</div>
+
+<div id="result-container" class="result hidden">
+  <div id="result-text"></div>
+  <button id="restart-btn">Vissza a teszt elejére</button>
+</div>
+<script>
+  if (sessionStorage.getItem("auth") !== "ok") {
+    window.location.href = "login.html";
+  }
+</script>
+
+<script>
+const tasks = [
+  {text:"<p>1. feladat: Számold ki! Mennyi 125 + 87?</p>", question:"Mennyi az összeg?", options:["202","212","222","232"], answer:"212"},
+  {text:"<p>2. feladat: Egy dobozban 36 ceruza van, a másikban 27. Hány ceruza van összesen?</p>", question:"Hány ceruza van a két dobozban együtt?", options:["53","57","63","69"], answer:"63"},
+  {text:"<p>3. feladat: A boltban a radír 120 Ft, a vonalzó 340 Ft. Mennyibe kerül együtt?</p>", question:"Mennyibe kerül a radír és a vonalzó együtt?", options:["360 Ft","420 Ft","460 Ft","560 Ft"], answer:"460 Ft"},
+  {text:"<p>4. feladat: A csapat 24 almát vitt a kirándulásra, ebből 7-et megettek. Hány maradt?</p>", question:"Hány alma maradt?", options:["15","16","17","18"], answer:"17"},
+  {text:"<p>5. feladat: A tanár 48 füzetet oszt ki. Ha 6 gyerek között egyenlően osztja el, hány füzet jut egynek?</p>", question:"Hány füzet jut egy gyereknek?", options:["6","7","8","9"], answer:"8"},
+  {text:"<p>6. feladat: A vonat 250 km-t tesz meg 5 óra alatt. Hány km-t megy 1 óra alatt?</p>", question:"Mennyi az egy órára jutó távolság?", options:["40 km","45 km","50 km","55 km"], answer:"50 km"},
+  {text:"<p>7. feladat: Petinek 320 Ft-ja van, vesz egy csokit 180 Ft-ért. Mennyi marad?</p>", question:"Mennyi pénze marad Petinek?", options:["120 Ft","130 Ft","140 Ft","150 Ft"], answer:"140 Ft"},
+  {text:"<p>8. feladat: Egy dobozban 4 sorban állnak a cukorkák, minden sorban 9 darab. Hány cukorka van?</p>", question:"Hány cukorka van összesen?", options:["32","36","45","54"], answer:"36"},
+  {text:"<p>9. feladat: A könyvtárban 120 mesekönyv van, ebből 45-t kikölcsönözték. Hány maradt bent?</p>", question:"Hány mesekönyv maradt a könyvtárban?", options:["65","70","75","85"], answer:"75"},
+  {text:"<p>10. feladat: A kertben 5 sor virág van, soronként 8 virág. Hány virág van összesen?</p>", question:"Hány virág van a kertben?", options:["30","35","40","45"], answer:"40"},
+  {text:"<p>11. feladat: A tanár 90 matricát oszt szét 10 tanuló között egyenlően. Hány jut egynek?</p>", question:"Hány matrica jut egy tanulónak?", options:["7","8","9","10"], answer:"9"},
+  {text:"<p>12. feladat: A tortát 12 egyenlő részre vágták, ebből 5-öt megettek. Hány szelet maradt?</p>", question:"Hány szelet torta maradt?", options:["5","6","7","8"], answer:"7"},
+  {text:"<p>13. feladat: A könyvben 84 oldal van, Marci ma 37-et olvasott el. Mennyi van hátra?</p>", question:"Hány oldal van hátra?", options:["45","47","49","51"], answer:"47"},
+  {text:"<p>14. feladat: Egy csomagban 6 zsírkréta van. Hány darab van 7 csomagban?</p>", question:"Hány zsírkréta van 7 csomagban?", options:["36","40","42","48"], answer:"42"},
+  {text:"<p>15. feladat: A játszótérre 128 gyerek ment ki, közülük 39 hazament. Hányan maradtak?</p>", question:"Hány gyerek maradt kint a játszótéren?", options:["79","81","83","89"], answer:"89"}
+];
+
+let current=0;
+let answers=Array(tasks.length).fill(null);
+
+const taskText = document.getElementById("task-text");
+const questionText = document.getElementById("question-text");
+const optionsContainer = document.getElementById("options-container");
+const circlesContainer = document.getElementById("question-circles");
+const prevBtn = document.getElementById("prev-btn");
+const nextBtn = document.getElementById("next-btn");
+const finishBtn = document.getElementById("finish-btn");
+const quizContainer = document.getElementById("quiz-container");
+const resultContainer = document.getElementById("result-container");
+const resultText = document.getElementById("result-text");
+const restartBtn = document.getElementById("restart-btn");
+
+function renderCircles() {
+  circlesContainer.innerHTML="";
+  tasks.forEach((t,i)=>{
+    const btn = document.createElement("button");
+    btn.textContent=i+1;
+    let colorClass = answers[i]!==null ? "green" : "red";
+    btn.className="circle "+colorClass;
+    btn.onclick=()=>{current=i; renderQuestion();}
+    circlesContainer.appendChild(btn);
+  });
+}
+
+function renderQuestion() {
+  const t = tasks[current];
+  taskText.innerHTML = t.text;
+  questionText.textContent = t.question;
+  optionsContainer.innerHTML="";
+  t.options.forEach(opt=>{
+    const label = document.createElement("label");
+    label.style.display="block";
+    label.style.cursor="pointer";
+    const input = document.createElement("input");
+    input.type="radio";
+    input.name="q";
+    input.checked = answers[current]===opt;
+    input.onchange=()=>{answers[current]=opt; renderCircles();}
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(" "+opt));
+    optionsContainer.appendChild(label);
+  });
+  prevBtn.disabled = current===0;
+  nextBtn.style.display = current===tasks.length-1 ? "none":"inline-block";
+  finishBtn.style.display = current===tasks.length-1 ? "inline-block":"none";
+}
+
+prevBtn.onclick=()=>{if(current>0) current--; renderQuestion();}
+nextBtn.onclick=()=>{if(current<tasks.length-1) current++; renderQuestion();}
+finishBtn.onclick=()=>{showResult();}
+restartBtn.onclick=()=>{quizContainer.style.display="grid"; resultContainer.classList.add("hidden"); current=0; answers=Array(tasks.length).fill(null); renderQuestion(); renderCircles();};
+
+function showResult(){
+  quizContainer.style.display="none";
+  resultContainer.classList.remove("hidden");
+  const correct = tasks.filter((t,i)=>answers[i]===t.answer).length;
+  resultText.textContent = "Helyes válaszok: "+correct+" / "+tasks.length;
+}
+
+renderQuestion();
+renderCircles();
+</script>
+</body>
+</html>

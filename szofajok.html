@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Szófaj Csoportosító</title>
+<style>
+    :root {
+        --primary: #2d5a27; /* Erdőzöld */
+        --bg-color: #e8f5e9; /* Halványzöld háttér */
+        --panel-bg: #ffffff;
+        --text-color: #1b3022;
+        --border-color: #c8e6c9;
+        --radius: 15px;
+        --shadow: 0 8px 16px rgba(0,0,0,0.1);
+        --success: #4caf50;
+        --warning: #ffa000;
+    }
+
+    body { 
+        font-family: 'Segoe UI', Roboto, sans-serif; 
+        margin:0; padding:0; 
+        background-color: var(--bg-color); 
+        background-image: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        color: var(--text-color); 
+        min-height: 100vh;
+    }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: rgba(255, 255, 255, 0.9); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+        backdrop-filter: blur(5px);
+    }
+    
+    #quiz-container .left { width:20%; border-right:2px solid var(--border-color); padding: 25px; overflow-y:auto; background-color: rgba(255,255,255,0.5); }
+    #quiz-container .right { width:80%; display:flex; flex-direction:column; padding: 25px; overflow-y:hidden; }
+    
+    .category-column {
+        flex: 1; min-width: 180px;
+        background: white; border: 2px solid var(--border-color);
+        border-radius: var(--radius); display: flex; flex-direction: column; padding: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .category-column h3 { text-align: center; margin: 5px 0 15px 0; color: var(--primary); font-size: 1rem; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+    
+    .drop-area { 
+        flex: 1; 
+        display: flex; 
+        flex-direction: row; /* Egymás mellé kerülnek */
+        flex-wrap: wrap;    /* Ha elfogy a hely, új sorba törnek */
+        gap: 8px;           /* Kisebb távolság a kártyák között */
+        align-content: flex-start; /* Felülre rendezi a sorokat */
+        padding: 5px;
+        min-height: 150px; 
+    }
+
+    /* Kicsit kisebb kártyák a dobozokon belül, hogy több elférjen */
+    .drop-area .draggable-card {
+        padding: 5px 10px;
+        font-size: 0.8rem;
+    }
+
+    .source-cards-area { 
+        background: rgba(255,255,255,0.8); padding: 20px; border-radius: var(--radius); 
+        display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 20px;
+        border: 2px dashed var(--border-color);
+    }
+
+    .draggable-card { 
+        background: var(--primary); color: white; padding: 10px 15px; 
+        border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold;
+        box-shadow: 0 4px 0 #1b3d1a; transition: all 0.2s;
+    }
+    .draggable-card:active { transform: translateY(2px); box-shadow: 0 2px 0 #1b3d1a; }
+    .draggable-card.selected { background-color: var(--warning); box-shadow: 0 4px 0 #c67c00; color: #000; }
+
+    .btn-finish { background-color: var(--success); color: white; padding:15px 30px; border-radius: 50px; font-size: 1.1rem; border: none; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3); }
+    .btn-finish:hover { transform: scale(1.05); background-color: #43a047; }
+
+    #resultPage { display:none; padding:60px; text-align:center; max-width: 600px; margin: 100px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    .drop-zones-container { display: flex; gap: 10px; flex: 1; overflow-x: auto; padding-bottom: 10px; }
+
+    @media (max-width: 1024px) {
+        #quiz-container { flex-direction: column; height: auto; }
+        #quiz-container .left, #quiz-container .right { width: 100%; }
+        .drop-zones-container { flex-wrap: wrap; }
+    }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left">
+      <h2 style="color: var(--primary)">Szófajok</h2>
+      <p>Húzd a kártyákat a megfelelő csoportba!</p>
+      <div style="font-size: 0.85rem; color: #666; margin-top: 20px;">
+          <b>Tipp:</b> Használd a "húzd és ejtsd" módszert, vagy kattints a szóra, majd a célterületre!
+      </div>
+  </div>
+  <div class="right">
+    <div id="quiz" style="height: 100%; display: flex; flex-direction: column;"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 style="color: var(--primary)">Eredményed:</h1>
+  <div id="resultText"></div>
+  <button onclick="location.reload()" class="btn-finish" style="margin-top: 20px;">Új játék</button>
+</div>
+
+<script>
+const quizData = {
+    categories: [
+        { id: "fonev", name: "Főnév 🏠" },
+        { id: "ige", name: "Ige 🏃" },
+        { id: "melleknev", name: "Melléknév ✨" }
+    ],
+    items: [
+        { szo: "iskola", cat: "fonev" }, { szo: "Balaton", cat: "fonev" }, { szo: "szeretet", cat: "fonev" }, { szo: "kiskutya", cat: "fonev" }, { szo: "ceruza", cat: "fonev" }, { szo: "Magyarország", cat: "fonev" }, { szo: "öröm", cat: "fonev" }, { szo: "felhő", cat: "fonev" }, { szo: "Nóra", cat: "fonev" }, { szo: "erdő", cat: "fonev" },
+        { szo: "olvas", cat: "ige" }, { szo: "gondolkodik", cat: "ige" }, { szo: "villámlik", cat: "ige" }, { szo: "szalad", cat: "ige" }, { szo: "énekel", cat: "ige" }, { szo: "alszik", cat: "ige" }, { szo: "játszik", cat: "ige" }, { szo: "növekszik", cat: "ige" }, { szo: "fest", cat: "ige" }, { szo: "mosolyog", cat: "ige" },
+        { szo: "hatalmas", cat: "melleknev" }, { szo: "piros", cat: "melleknev" }, { szo: "okos", cat: "melleknev" }, { szo: "kedves", cat: "melleknev" }, { szo: "szomorú", cat: "melleknev" }, { szo: "savanyú", cat: "melleknev" }, { szo: "gyors", cat: "melleknev" }, { szo: "pöttyös", cat: "melleknev" }, { szo: "fényes", cat: "melleknev" }, { szo: "szorgalmas", cat: "melleknev" }
+    ]
+};
+
+let selectedPoint = null;
+
+function init() {
+    const quizWrap = document.getElementById("quiz");
+    const container = document.createElement("div");
+    container.style.display = "flex";
+    container.style.flexDirection = "column";
+    container.style.height = "100%";
+
+    const sourceArea = document.createElement("div");
+    sourceArea.className = "source-cards-area";
+    sourceArea.id = "source-area";
+    sourceArea.ondrop = drop;
+    sourceArea.ondragover = e => e.preventDefault();
+
+    const zonesContainer = document.createElement("div");
+    zonesContainer.className = "drop-zones-container";
+
+    quizData.categories.forEach(cat => {
+        const col = document.createElement("div");
+        col.className = "category-column";
+        col.innerHTML = `<h3>${cat.name}</h3>`;
+        const dropArea = document.createElement("div");
+        dropArea.className = "drop-area";
+        dropArea.dataset.catId = cat.id;
+        dropArea.ondrop = drop;
+        dropArea.ondragover = e => e.preventDefault();
+        dropArea.onclick = () => handleZoneClick(dropArea);
+        col.appendChild(dropArea);
+        zonesContainer.appendChild(col);
+    });
+
+    [...quizData.items].sort(() => Math.random() - 0.5).forEach((item, i) => {
+        const card = document.createElement("div");
+        card.className = "draggable-card";
+        card.id = `c-${i}`;
+        card.textContent = item.szo;
+        card.draggable = true;
+        card.dataset.correctCat = item.cat;
+        card.onclick = (e) => { e.stopPropagation(); handleCardClick(card); };
+        card.ondragstart = (e) => { e.dataTransfer.setData("text", e.target.id); handleCardClick(card); };
+        sourceArea.appendChild(card);
+    });
+
+    const foot = document.createElement("div");
+    foot.style.textAlign = "right"; foot.style.marginTop = "20px";
+    foot.innerHTML = `<button class="btn-finish" onclick="finishQuiz()">Készen vagyok!</button>`;
+
+    container.appendChild(sourceArea);
+    container.appendChild(zonesContainer);
+    container.appendChild(foot);
+    quizWrap.appendChild(container);
+}
+
+function handleCardClick(card) {
+    document.querySelectorAll('.draggable-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedPoint = card;
+}
+
+function handleZoneClick(zone) {
+    if (selectedPoint) {
+        zone.appendChild(selectedPoint);
+        selectedPoint.classList.remove('selected');
+        selectedPoint = null;
+    }
+}
+
+function drop(e) {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text");
+    const card = document.getElementById(id);
+    let target = e.target;
+    while(target && !target.classList.contains('drop-area') && !target.classList.contains('source-cards-area')) {
+        target = target.parentElement;
+    }
+    if(target) target.appendChild(card);
+}
+
+function finishQuiz() {
+    let score = 0;
+    const total = quizData.items.length;
+    document.querySelectorAll('.drop-area').forEach(zone => {
+        const catId = zone.dataset.catId;
+        zone.querySelectorAll('.draggable-card').forEach(card => {
+            if(card.dataset.correctCat === catId) score++;
+        });
+    });
+
+    document.getElementById("quiz-container").style.display = "none";
+    document.getElementById("resultPage").style.display = "block";
+    const percent = Math.round(score/total*100);
+    document.getElementById("resultText").innerHTML = `
+        <div style="font-size: 4rem; font-weight: bold; color: var(--primary);">${percent}%</div>
+        <p style="font-size: 1.2rem;">${total} szóból <b>${score}</b> került a helyére.</p>
+    `;
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

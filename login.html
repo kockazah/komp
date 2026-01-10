@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Jelszó szükséges</title>
+
+<style>
+  body { margin:0; font-family:Arial; background:#f2f2f2; }
+  #box {
+    background:white; width:300px; padding:25px; 
+    border-radius:10px; box-shadow:0 0 10px #0008;
+    position:absolute; top:50%; left:50%; 
+    transform:translate(-50%, -50%);
+    text-align:center;
+  }
+  input, button { width:90%; margin-top:10px; padding:10px; font-size:16px; }
+  button {
+    background:#4CAF50; color:white; border:none; border-radius:6px;
+    cursor:pointer;
+  }
+  #err { color:red; display:none; }
+</style>
+</head>
+<body>
+
+<div id="box">
+  <h2>Belépés</h2>
+  <input id="pw" type="password" placeholder="Jelszó">
+  <button onclick="login()">Belépés</button>
+  <div id="err">Hibás jelszó!</div>
+</div>
+
+<script>
+const correct = "Kovats12345"; // ← IDE ÍRD A JELSZÓT
+
+function login() {
+  const p = document.getElementById("pw").value;
+  if (p === correct) {
+    sessionStorage.setItem("auth", "ok");  // ← beléptetjük
+    window.location.href = "index.html";   // ← kezdőoldalra lép
+  } else {
+    document.getElementById("err").style.display = "block";
+  }
+}
+
+// Enter-re is működjön
+document.getElementById("pw").addEventListener("keyup", e => {
+  if (e.key === "Enter") login();
+});
+</script>
+
+</body>
+</html>
