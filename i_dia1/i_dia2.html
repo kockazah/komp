@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Digitális kultúra kompetencia Kvíz Diagramok</title>
+<style>
+body { font-family: Arial,sans-serif; margin:0; padding:0; }
+#quiz-container { display:flex; flex-direction:row; max-width:1200px; margin:auto; gap:0; }
+#quiz-container > div { padding:20px; }
+#quiz-container .left { width:40%; border-right:2px solid #ddd; max-height:80vh; overflow-y:auto; }
+#quiz-container .right { width:60%; display:flex; flex-direction:column; max-height:80vh; }
+#quiz-container .right .quiz-header { position: sticky; top:0; background-color:white; z-index:10; padding-bottom:10px; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; }
+#quiz-container .right .quiz-questions { overflow-y:auto; flex-grow:1; position:relative; }
+#question-navigator { margin-bottom:10px; }
+#question-navigator .qn { display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; border-radius:50%; background-color:red; color:white; margin-right:5px; cursor:pointer; }
+#question-navigator .qn.answered { background-color:green; }
+.question { display:none; }
+.question.active { display:block; }
+.question-buttons { display:flex; justify-content:space-between; margin-top:10px; }
+#result { display:none; font-size:1.2em; color:blue; margin-top:20px; }
+#restartBtn { display:none; margin-top:10px; padding:10px 20px; }
+#left-panel img { width: 100%; height: auto; object-fit: contain; display:block; margin-top:10px; }
+#left-panel { display:flex; flex-direction:column; justify-content:flex-start; max-height:80vh; overflow-y:auto; }
+
+/* --- Lightbox CSS --- */
+#image-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.3s ease;
+}
+#overlay-img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(255,255,255,0.3);
+  cursor: zoom-out;
+  transform: scale(0.7);
+  transition: transform 0.4s ease;
+}
+.zoomable {
+  cursor: zoom-in;
+  transition: 0.2s;
+}
+.zoomable:hover { opacity: 0.8; }
+
+@media (max-width:768px) {
+  #quiz-container { flex-direction:column; }
+  #quiz-container .left,#quiz-container .right { width:100%; max-height:none; border-right:none; }
+}
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>Digitális kultúra kompetenciamérés gyakorlás <p>Diagramok</h2>
+  </div>
+  <div class="right">
+    <div class="quiz-header">
+      <h2>Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+    <button id="finishBtn" onclick="finishQuiz()" style="margin-top:10px; padding:10px 20px; display:none;">Lezárás</button>
+    <div id="result"></div>
+    <button id="restartBtn" onclick="restartQuiz()">Vissza</button>
+  </div>
+</div>
+
+<!-- Lightbox div -->
+<div id="image-overlay">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+// --- Kvíz adatok ---
+const quizData = [
+{question:"Melyik plüssre szavaztak a legtöbben?", 
+options:["Oroszlán","Majom","Zsiráf","Elefánt","Ló","Nyúl"], 
+correct:2, 
+leftText: "",
+leftImage:"dia1.jpg"},
+
+{question:"Hányan szavaztak összesen?", 
+options:["30","36","38","40"], 
+correct:3,
+leftText: "",
+leftImage:"dia1.jpg"},
+
+{question:"Mennyivel szavaztak többen a zsiráfra, mint a majomra?", 
+options:["5","6","7","8"], 
+correct:2, 
+leftText: "",
+leftImage:"dia1.jpg"},
+
+{question:"Mikor van a legnagyobb forgalom?", 
+options:["Hétfőn éjszaka","Kedden délután","Kedden délelőtt","Csütörtökön délután"], 
+correct:1, 
+leftText: "",
+leftImage:"dia2.jpg"},
+
+{question:"Mikor van a legkisebb forgalom?", 
+options:["Pénteken éjszaka","Szerdán délelőtt","Csütörtökön éjszaka","Hétfőn éjszaka"], 
+correct:3, 
+leftText: "",
+leftImage:"dia2.jpg"},
+
+{question:"Mekkora a forgalom pénteken délelőtt?", 
+options:["80","100","120","170"], 
+correct:2, 
+leftText: "",
+leftImage:"dia2.jpg"},
+
+{question:"Melyik napon van nagyobb forgalom délelőtt, mint a nap többi részében?", 
+options:["Hétfőn","Kedden","Szerdán","Csütörtökön","Pénteken"], 
+correct:4, 
+leftText: "",
+leftImage:"dia2.jpg"},
+
+{question:"A napszakok közül mikor van általában a legkisebb forgalom?", 
+options:["Délelőtt","Délután","Éjszaka","Nem lehet eldönteni"], 
+correct:2,
+leftText: "",
+leftImage:"dia2.jpg"},
+
+{question:"Melyik osztály kölcsönzött a legtöbbet hétfőn?", 
+options:["2. osztály","3. osztály","4. osztály","Nem lehet eldönteni"], 
+correct:1, 
+leftText: "",
+leftImage:"dia3.jpg"},
+
+{question:"Hány könyvet kölcsönzött a 3. osztály csütörtökön?", 
+options:["8","10","12","20"], 
+correct:0, 
+leftText: "",
+leftImage:"dia3.jpg"},
+
+{question:"Melyik napon volt a legkevesebb kölcsönzés a 2. osztálynál?", 
+options:["Hétfőn","Kedden","Szerdán","Csütörtökön","Pénteken"], 
+correct:2, 
+leftText: "",
+leftImage:"dia3.jpg"},
+
+{question:"Melyik osztálynál nőtt a legnagyobb mértékben a keddi kölcsönzés a hétfőihez képest?", 
+options:["2.","3.","4.","Mindhárom osztálynál egyformán változott"], 
+correct:2, 
+leftText: "",
+leftImage:"dia3.jpg"},
+
+{question:"Melyik napon volt összesen a legtöbb kölcsönzés?", 
+options:["Hétfőn","Kedden","Szerdán","Csütörtökön","Pénteken"], 
+correct:1, 
+leftText: "",
+leftImage:"dia3.jpg"},
+
+{question:"Hány kilométert tettek meg délelőtt 10 óráig?", 
+options:["1","2","3","4"], 
+correct:3, 
+leftText: "",
+leftImage:"dia4.jpg"},
+
+{question:"Hányszor tartottak pihenőt?", 
+options:["1","2","3","4"], 
+correct:2, 
+leftText: "",
+leftImage:"dia4.jpg"},
+
+{question:"Hány kilométert haladtak 12:00 és 13:00 között?", 
+options:["1","2","3","4"], 
+correct:3, 
+leftText: "",
+leftImage:"dia4.jpg"},
+
+{question:"Mikor tartották a leghosszabb pihenőt?", 
+options:["10:00 és 12:00 között","12:00 és 14:00 között","14:00 és 16:00 között","16:00 és 18:00 között"], 
+correct:0, 
+leftText: "",
+leftImage:"dia4.jpg"},
+
+{question:"Hány órakor érkeztek a célhoz?", 
+options:["11:00","12:00","13:00","14:00"], 
+correct:2, 
+leftText: "Mikor értek a legtávolabbi pontra?",
+leftImage:"dia4.jpg"},
+
+{question:"Hány km-t túráztak összesen?", 
+options:["8","12","16","20"], 
+correct:2, 
+leftText: "",
+leftImage:"dia4.jpg"},
+
+{question:"Hány órán át tartott a teljes kirándulás?", 
+options:["4","6","10","12"], 
+correct:3, 
+leftText: "",
+leftImage:"dia4.jpg"},
+
+];
+
+// --- Számsor ---
+const navDiv = document.getElementById("question-navigator");
+quizData.forEach((q,i)=>{
+  const span = document.createElement('span');
+  span.className='qn';
+  span.innerText=i+1;
+  span.addEventListener('click',()=> showQuestion(i));
+  navDiv.appendChild(span);
+});
+
+// --- Kérdések ---
+const quizDiv = document.getElementById("quiz");
+quizData.forEach((q,index)=>{
+  let html = `<div class='question' id='q${index}'>
+    <p><strong>${q.question}</strong></p>`;
+  q.options.forEach((opt,i)=>{
+    html+=`<label style='display:block;margin-left:10px;'>
+      <input type='radio' name='q${index}' value='${i}'> ${opt}
+    </label>`;
+  });
+  html+=`<div class='question-buttons'>
+      <button class='prevBtn' onclick='prevQuestion()'>Előző</button>
+      <button class='nextBtn' onclick='nextQuestion()'>Következő</button>
+    </div>`;
+  html+="</div>";
+  quizDiv.innerHTML+=html;
+});
+
+// --- Alapértelmezett ---
+let currentQuestion=0;
+document.querySelectorAll('.question').forEach((q,i)=>{
+  if(i===0) q.querySelector('.prevBtn').style.display='none';
+  if(i===quizData.length-1) q.querySelector('.nextBtn').style.display='none';
+});
+document.getElementById(`q${currentQuestion}`).classList.add('active');
+
+// --- Kérdésváltás ---
+function showQuestion(n){
+  const question = quizData[n];
+  const leftPanel = document.getElementById("left-panel");
+  leftPanel.innerHTML = `<h2>Digitális kultúra kompetenciamérés gyakorlás <p>diagramok</h2>`;
+
+  if(question.leftText){
+    const textNode = document.createElement('p');
+    textNode.innerText = question.leftText;
+    leftPanel.appendChild(textNode);
+  }
+
+  if(question.leftImage){
+    const imgTag = document.createElement('img');
+    imgTag.src = question.leftImage;
+    imgTag.alt = `Kép a ${n+1}. kérdéshez`;
+    imgTag.style.maxWidth="100%";
+    imgTag.style.marginTop="10px";
+    imgTag.classList.add("zoomable"); // kattintásra nagyítható
+    leftPanel.appendChild(imgTag);
+  }
+
+  document.querySelectorAll('.question').forEach(q=>q.classList.remove('active'));
+  document.getElementById(`q${n}`).classList.add('active');
+
+  document.querySelectorAll(`#q${n} input[type=radio]`).forEach(el=>{
+    el.addEventListener('change',()=>{
+      document.querySelectorAll('#question-navigator .qn')[n].classList.add('answered');
+    });
+  });
+
+  currentQuestion=n;
+  document.querySelectorAll('.prevBtn').forEach(b=>b.style.display='inline-block');
+  document.querySelectorAll('.nextBtn').forEach(b=>b.style.display='inline-block');
+  if(n===0) document.getElementById(`q${n}`).querySelector('.prevBtn').style.display='none';
+  if(n===quizData.length-1) document.getElementById(`q${n}`).querySelector('.nextBtn').style.display='none';
+  if(n===quizData.length-1) document.getElementById("finishBtn").style.display="inline-block";
+  else document.getElementById("finishBtn").style.display="none";
+}
+
+// --- Előző / Következő ---
+function prevQuestion(){ if(currentQuestion>0) showQuestion(currentQuestion-1); }
+function nextQuestion(){ if(currentQuestion<quizData.length-1) showQuestion(currentQuestion+1); }
+
+// --- Lezárás és eredmény ---
+function finishQuiz(){
+  let score=0;
+  quizData.forEach((q,index)=>{
+    const answer = document.querySelector(`input[name='q${index}']:checked`);
+    if(answer && Number(answer.value)===q.correct) score++;
+  });
+  document.querySelector('.quiz-questions').style.display="none";
+  document.getElementById("finishBtn").style.display="none";
+  document.querySelector('.quiz-header').style.display="none";
+  document.getElementById("result").style.display="block";
+  document.getElementById("result").innerText=`Eredményed: ${score} / ${quizData.length}`;
+  document.getElementById("restartBtn").style.display="inline-block";
+  document.querySelector('.left').style.display="none";
+}
+
+// --- Vissza ---
+function restartQuiz(){
+  document.querySelectorAll('input[type=radio]').forEach(el=>el.checked=false);
+  document.querySelectorAll('#question-navigator .qn').forEach(q=>q.classList.remove('answered'));
+  document.querySelector('.quiz-questions').style.display="block";
+  document.querySelector('.quiz-header').style.display="flex";
+  document.querySelector('.left').style.display="block";
+  document.getElementById("result").style.display="none";
+  document.getElementById("restartBtn").style.display="none";
+  currentQuestion=0;
+  showQuestion(0);
+}
+
+// --- Lightbox JS animációval ---
+const overlay = document.getElementById("image-overlay");
+const overlayImg = document.getElementById("overlay-img");
+document.getElementById("left-panel").addEventListener("click", function(e){
+  if(e.target.tagName === "IMG" && e.target.classList.contains("zoomable")){
+    overlayImg.src = e.target.src;
+    overlay.style.display = "flex";
+    setTimeout(()=>{ overlayImg.style.transform = "scale(1)"; }, 10); // fokozatos nagyítás
+  }
+});
+overlay.addEventListener("click", function(){
+  overlayImg.style.transform = "scale(0.7)"; // vissza
+  setTimeout(()=>{ overlay.style.display = "none"; }, 300);
+});
+
+// --- Indítás ---
+showQuestion(0);
+</script>
+</body>
+</html>

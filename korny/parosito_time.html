@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Állatvilág Rendszertan Játék</title>
+<style>
+    :root {
+        --primary: #2d5a27;
+        --bg-color: #e8f5e9;
+        --panel-bg: #ffffff;
+        --text-color: #1b3022;
+        --border-color: #c8e6c9;
+        --radius: 15px;
+        --shadow: 0 8px 16px rgba(0,0,0,0.1);
+        --success: #4caf50;
+        --warning: #ffa000;
+        --danger: #ef4444;
+    }
+
+    body { 
+        font-family: 'Segoe UI', sans-serif; margin:0; 
+        background-color: var(--bg-color); color: var(--text-color); 
+        min-height: 100vh; transition: background-color 0.3s;
+    }
+    
+    body.penalty { background-color: #ffcdd2; }
+
+    .screen { display: none; padding: 20px; animation: fadeIn 0.5s; }
+    .active-screen { display: block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    #start-screen, #result-screen {
+        max-width: 650px; margin: 50px auto;
+        background: white; padding: 40px; border-radius: var(--radius);
+        box-shadow: var(--shadow); text-align: center;
+    }
+
+    .nickname-input {
+        padding: 12px; font-size: 1.1rem; border: 2px solid var(--border-color);
+        border-radius: 8px; width: 80%; margin-bottom: 20px; outline: none; text-align: center;
+    }
+
+    #quiz-container { 
+        display:flex; max-width:1400px; margin: 20px auto; 
+        background: rgba(255, 255, 255, 0.9); border-radius: var(--radius); 
+        box-shadow: var(--shadow); height: calc(100vh - 40px); overflow: hidden;
+    }
+    
+    .left { width:20%; border-right:2px solid var(--border-color); padding: 25px; background: rgba(255,255,255,0.5); }
+    .right { width:80%; display:flex; flex-direction:column; padding: 25px; overflow: hidden; }
+    
+    .timer-box { font-size: 2.2rem; font-weight: bold; color: var(--primary); text-align: center; border: 2px solid var(--primary); border-radius: 10px; background: white; margin-bottom: 10px; padding: 5px; }
+
+    .source-cards-area { background: rgba(255,255,255,0.8); padding: 15px; border-radius: var(--radius); display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; border: 2px dashed var(--border-color); min-height: 80px; margin-bottom: 15px; overflow-y: auto; }
+
+    .drop-zones-container { display: flex; gap: 10px; flex: 1; overflow-x: auto; padding-bottom: 10px; }
+    .category-column { flex: 1; min-width: 170px; background: white; border: 2px solid var(--border-color); border-radius: var(--radius); display: flex; flex-direction: column; padding: 10px; transition: 0.2s; }
+    .drop-area { flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 100px; }
+
+    .draggable-card { background: var(--primary); color: white; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: bold; text-align: center; transition: 0.2s; user-select: none; }
+    .draggable-card.selected { background-color: var(--warning); color: black; transform: scale(1.05); }
+
+    button { padding: 15px 30px; border-radius: 50px; border: none; cursor: pointer; font-size: 1.1rem; font-weight: bold; transition: 0.3s; }
+    .btn-start { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-clear { background: #999; color: white; font-size: 0.8rem; padding: 10px 20px; margin-top: 20px; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem; }
+    th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: center; }
+    th { background: #f4f4f4; color: var(--primary); }
+    tr:first-child td { font-weight: bold; background-color: #fff9c4; }
+</style>
+</head>
+<body>
+
+<div id="start-screen" class="screen active-screen">
+    <h1 style="color: var(--primary)">Állat Csoportosító</h1>
+    <p>Rendezd az állatokat a megfelelő osztályokba!</p>
+    <input type="text" id="playerNickname" class="nickname-input" placeholder="Írd ide a neved..." maxlength="15">
+    <br>
+    <p><small>Minden hibás válasz +5 másodperc büntetést ér.</small></p>
+    <button class="btn-start" onclick="startGame()">JÁTÉK INDÍTÁSA (óra indul)</button>
+</div>
+
+<div id="game-screen" class="screen">
+    <div id="quiz-container">
+        <div class="left">
+            <div id="displayNick" style="font-weight:bold; text-align:center; margin-bottom:10px; color:var(--primary);"></div>
+            <div class="timer-box" id="timerDisplay">00:00</div>
+            <p id="penaltyNotice" style="color:red; display:none; font-weight:bold; text-align:center;">Hiba! +3 mp</p>
+            <hr>
+            <h3>Segítség</h3>
+            <p style="font-size: 0.8rem">Kattints egy szóra, majd a célterületre, vagy húzd a helyére!</p>
+        </div>
+        <div class="right">
+            <div class="source-cards-area" id="source-area" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+            <div class="drop-zones-container" id="zones-container"></div>
+            <div style="text-align: right; margin-top: 15px;">
+                <button class="btn-finish" onclick="finishQuiz()">Készen vagyok!</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="result-screen" class="screen">
+    <h1 id="resTitle">Eredmény</h1>
+    <div id="resultSummary"></div>
+    <h3>🏆 Toplista (Legjobb 10)</h3>
+    <table id="scoreTable">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Név</th>
+                <th>Pont</th>
+                <th>Idő</th>
+                <th>Dátum</th>
+            </tr>
+        </thead>
+        <tbody id="scoreBody"></tbody>
+    </table>
+    <button class="btn-start" style="margin-top: 20px;" onclick="location.reload()">Új játék</button>
+    <br>
+    <button class="btn-clear" onclick="clearScores()">Ranglista törlése (Admin)</button>
+</div>
+
+<script>
+const quizData = {
+    categories: [
+        { id: "halak", name: "Halak 🐟" },
+        { id: "keteltuek", name: "Kétéltűek 🐸" },
+        { id: "hullok", name: "Hüllők 🐍" },
+        { id: "madarak", name: "Madarak 🐦" },
+        { id: "emlosok", name: "Emlősök 🦌" }
+    ],
+    items: [
+    { szo: "Ponty", cat: "halak" }, { szo: "Harcsa", cat: "halak" }, { szo: "Keszeg", cat: "halak" }, { szo: "Csuka", cat: "halak" }, { szo: "Cápa", cat: "halak" }, { szo: "Lazac", cat: "halak" },
+    { szo: "Kecskebéka", cat: "keteltuek" }, { szo: "Barna varangy", cat: "keteltuek" }, { szo: "Foltos szalamandra", cat: "keteltuek" }, { szo: "Tarajos gőte", cat: "keteltuek" }, { szo: "Levelibéka", cat: "keteltuek" }, { szo: "Zöld varangy", cat: "keteltuek" },
+    { szo: "Mocsári teknős", cat: "hullok" }, { szo: "Vízisikló", cat: "hullok" }, { szo: "Keresztes vipera", cat: "hullok" }, { szo: "Fürge gyík", cat: "hullok" }, { szo: "Krokodil", cat: "hullok" }, { szo: "Kaméleon", cat: "hullok" },
+    { szo: "Fehér gólya", cat: "madarak" }, { szo: "Széncinege", cat: "madarak" }, { szo: "Fekete rigó", cat: "madarak" }, { szo: "Egerészölyv", cat: "madarak" }, { szo: "Pingvin", cat: "madarak" }, { szo: "Fecske", cat: "madarak" },
+    { szo: "Vörös róka", cat: "emlosok" }, { szo: "Mezei nyúl", cat: "emlosok" }, { szo: "Gímszarvas", cat: "emlosok" }, { szo: "Vakond", cat: "emlosok" }, { szo: "Delfin", cat: "emlosok" }, { szo: "Sün", cat: "emlosok" }
+]
+};
+
+let secondsElapsed = 0;
+let timerInterval;
+let selectedPoint = null;
+let currentPlayer = "Névtelen";
+
+function startGame() {
+    const nick = document.getElementById('playerNickname').value.trim();
+    if(nick) currentPlayer = nick;
+    document.getElementById('displayNick').innerText = "Játékos: " + currentPlayer;
+    document.getElementById('start-screen').classList.remove('active-screen');
+    document.getElementById('game-screen').classList.add('active-screen');
+    initGame();
+}
+
+function initGame() {
+    const sourceArea = document.getElementById("source-area");
+    const zonesContainer = document.getElementById("zones-container");
+    quizData.categories.forEach(cat => {
+        const col = document.createElement("div");
+        col.className = "category-column";
+        col.innerHTML = `<h3>${cat.name}</h3><div class="drop-area" data-cat-id="${cat.id}" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="handleZoneClick(this)"></div>`;
+        zonesContainer.appendChild(col);
+    });
+    [...quizData.items].sort(() => Math.random() - 0.5).forEach((item, i) => {
+        const card = document.createElement("div");
+        card.className = "draggable-card";
+        card.id = `c-${i}`;
+        card.textContent = item.szo;
+        card.draggable = true;
+        card.dataset.correctCat = item.cat;
+        card.onclick = (e) => { e.stopPropagation(); handleCardClick(card); };
+        card.ondragstart = (e) => { e.dataTransfer.setData("text", e.target.id); handleCardClick(card); };
+        sourceArea.appendChild(card);
+    });
+    timerInterval = setInterval(() => { secondsElapsed++; updateTimerDisplay(); }, 1000);
+}
+
+function updateTimerDisplay() {
+    const mins = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+    const secs = (secondsElapsed % 60).toString().padStart(2, '0');
+    document.getElementById("timerDisplay").innerText = `${mins}:${secs}`;
+}
+
+function handleCardClick(card) {
+    document.querySelectorAll('.draggable-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedPoint = card;
+}
+
+function handleZoneClick(zone) {
+    if (selectedPoint) {
+        zone.appendChild(selectedPoint);
+        selectedPoint.classList.remove('selected');
+        selectedPoint = null;
+    }
+}
+
+function allowDrop(e) { e.preventDefault(); }
+function drop(e) {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text");
+    const card = document.getElementById(id);
+    let target = e.target;
+    while(target && !target.classList.contains('drop-area') && !target.classList.contains('source-cards-area')) target = target.parentElement;
+    if(target) target.appendChild(card);
+}
+
+function finishQuiz() {
+    let score = 0;
+    let errors = 0;
+    const dropAreas = document.querySelectorAll('.drop-area');
+    
+    dropAreas.forEach(zone => {
+        const catId = zone.dataset.catId;
+        zone.querySelectorAll('.draggable-card').forEach(card => {
+            if(card.dataset.correctCat === catId) score++;
+            else errors++;
+        });
+    });
+
+    const leftInSource = document.getElementById("source-area").children.length;
+    errors += leftInSource; // Ami kint maradt, az is hiba
+
+    if(errors > 0) {
+        secondsElapsed += (errors * 3);
+        updateTimerDisplay();
+        document.body.classList.add('penalty');
+        document.getElementById('penaltyNotice').style.display = 'block';
+        setTimeout(() => {
+            document.body.classList.remove('penalty');
+            document.getElementById('penaltyNotice').style.display = 'none';
+        }, 1000);
+        alert(`Befejezve! ${errors} hiba/hiányzó kártya miatt +${errors*5} mp büntetést kaptál.`);
+    }
+
+    clearInterval(timerInterval);
+    saveScore(currentPlayer, score, quizData.items.length, secondsElapsed);
+    showResults(score, quizData.items.length);
+}
+
+function saveScore(name, score, total, time) {
+    const scores = JSON.parse(localStorage.getItem('animalQuizScoresV2') || '[]');
+    const newEntry = {
+        name: name,
+        date: new Date().toLocaleDateString(),
+        percent: Math.round(score/total*100),
+        timeStr: document.getElementById("timerDisplay").innerText,
+        rawTime: time
+    };
+    scores.push(newEntry);
+    scores.sort((a, b) => b.percent - a.percent || a.rawTime - b.rawTime);
+    localStorage.setItem('animalQuizScoresV2', JSON.stringify(scores.slice(0, 10)));
+}
+
+function showResults(score, total) {
+    document.getElementById('game-screen').classList.remove('active-screen');
+    document.getElementById('result-screen').classList.add('active-screen');
+    const percent = Math.round(score/total*100);
+    document.getElementById('resultSummary').innerHTML = `
+        <h2 style="font-size: 3rem; color: var(--primary); margin: 0;">${percent}%</h2>
+        <p>Gratulálunk, <b>${currentPlayer}</b>!</p>
+        <p>Helyes: ${score}/${total} | Végső idő: ${document.getElementById("timerDisplay").innerText}</p>
+    `;
+    const scores = JSON.parse(localStorage.getItem('animalQuizScoresV2') || '[]');
+    const body = document.getElementById('scoreBody');
+    body.innerHTML = scores.map((s, idx) => `
+        <tr>
+            <td>${idx + 1}.</td>
+            <td>${s.name}</td>
+            <td>${s.percent}%</td>
+            <td>${s.timeStr}</td>
+            <td>${s.date}</td>
+        </tr>`).join('');
+}
+
+function clearScores() {
+    const password = prompt("Add meg az admin jelszót a törléshez:");
+    if (password === "Kovats12345") {
+        if(confirm("Tényleg törlöd a ranglistát?")) {
+            localStorage.removeItem('animalQuizScoresV2');
+            location.reload();
+        }
+    } else if (password !== null) {
+        alert("Hibás jelszó!");
+    }
+}
+</script>
+</body>
+</html>

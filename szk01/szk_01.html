@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Természettudomány – Kompetenciamérés</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --primary-dark: #1d4ed8;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        margin: 0; 
+        padding: 20px; 
+        background-color: var(--bg-color); 
+        color: var(--text-color);
+        height: 100vh;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    #quiz-container { 
+        display: flex; 
+        flex-direction: row; 
+        max-width: 1400px; 
+        margin: 0 auto; 
+        height: calc(100vh - 40px); 
+        background-color: var(--panel-bg);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    /* Bal oldal */
+    .left { 
+        width: 40%; 
+        padding: 30px; 
+        border-right: 1px solid var(--border-color); 
+        background-color: #fafafa;
+        overflow-y: auto; 
+    }
+
+    .left h2 {
+        margin-top: 0;
+        color: var(--primary);
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 10px;
+    }
+
+    #left-panel img { 
+        width: 100%; 
+        height: auto; 
+        border-radius: 8px;
+        margin-top: 15px; 
+        cursor: zoom-in; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    /* Jobb oldal */
+    .right { 
+        width: 60%; 
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    .quiz-header { 
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 20px;
+        flex-shrink: 0;
+    }
+
+    #question-navigator { 
+        display: flex; 
+        flex-wrap: wrap; 
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .qn { 
+        width: 32px; 
+        height: 32px; 
+        background-color: var(--danger); 
+        color: white; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        border-radius: 50%; 
+        cursor: pointer; 
+        font-weight: bold;
+        font-size: 0.9rem;
+        transition: transform 0.2s;
+    }
+    .qn:hover { transform: scale(1.1); }
+    .qn.active-nav { outline: 3px solid var(--primary); outline-offset: 2px; }
+
+    .quiz-questions { flex-grow: 1; position: relative; }
+    .question { display: none; }
+    .question.active { display: block; animation: fadeIn 0.3s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Kérdés típusok stílusa */
+    .dropdown-sentence {
+        margin-bottom: 15px;
+        line-height: 1.8;
+        font-size: 1.05rem;
+    }
+
+    select {
+        padding: 5px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        margin: 0 5px;
+        font-size: 1rem;
+    }
+
+    label {
+        display: block;
+        padding: 12px;
+        margin-bottom: 8px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    label:hover { background-color: #f8fafc; }
+    input[type="radio"], input[type="checkbox"] { margin-right: 10px; transform: scale(1.2); }
+
+    /* Vezérlők */
+    .question-buttons { 
+        display: flex; 
+        justify-content: space-between; 
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    button { 
+        padding: 10px 25px; 
+        border-radius: 8px; 
+        border: none; 
+        font-weight: 600; 
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .btn-blue { background-color: var(--primary); color: white; }
+    .btn-blue:hover { background-color: var(--primary-dark); }
+    
+   
+    /* Eredmény oldal */
+    #resultPage { 
+        display: none; 
+        max-width: 800px; 
+        margin: 50px auto; 
+        padding: 40px; 
+        background: white; 
+        border-radius: var(--radius); 
+        box-shadow: var(--shadow);
+        text-align: center;
+    }
+
+    /* Kép zoom */
+    #image-overlay { 
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+        background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; 
+        z-index: 9999; 
+    }
+    #overlay-img { 
+        max-width: 90%; max-height: 90%; border-radius: 8px; 
+        box-shadow: 0 0 30px rgba(0,0,0,0.5); cursor: zoom-out; 
+    }
+
+    @media (max-width: 768px) {
+        #quiz-container { flex-direction: column; height: auto; overflow: visible; }
+        .left, .right { width: 100%; max-height: none; border-right: none; }
+    }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+      <!-- Tartalom JS-ből -->
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <div style="display:flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin:0;">Kérdések</h2>
+          <div id="question-navigator"></div>
+      </div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultHeader">Eredmény</h1>
+  <div id="resultSummary" style="font-size: 1.2rem; margin-bottom: 20px;"></div>
+  <div id="resultDetails" style="text-align: left; margin-bottom: 30px; padding: 20px; background: #f9fafb; border-radius: 8px;"></div>
+  <button id="restartBtn" class="btn-blue">Újrakezdés</button>
+</div>
+
+<div id="image-overlay" onclick="closeZoom()">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+/**
+ * QUIZ ADATOK
+ */
+const quizData = [
+{
+  question: "<p>Felső szöveg a kérdéshez, ez egy egyszerű választásos kérdés. <br><br>Maga a kérdés</p>",
+  type: "single",
+  options: ["rossz válasz","rossz válasz","jó válasz","rossz válasz"],
+  correct: [2],
+  points:1,
+  leftText:"<p>A bal oldali ablak szövege.<br><br></p>",
+  leftImage:"kerdes.jpg",
+},
+
+{
+  question: "<p>Ez egy többválasztásos kérdés, jelöld be a szerinted mindegyik helyes választ!</p>",
+  type: "multi",
+  options: ["1. opció (helyes)","2. opció","3. opció","4. opció","5. opció (ez is helyes)"],
+  correct: [0,4],
+  points:2,
+  leftText:"A bal oldali panel szövege",
+  leftImage:"kerdes.jpg"
+},
+
+{
+  question: "<p>Melyik érzékelési módra nem tudnak támaszkodni a vakok és gyengénlátók?</p>",
+  type: "single",
+  options: ["hallás","szaglás","látás","tapintás"],
+  correct: [2],
+  points:1,
+  leftText:"<p>Az ember a környezetéből származó legtöbb információt, becslések szerint a 80–85%-át, a látás segítségével szerzi meg.<br><br></p>",
+  leftImage:"tt_k101.jpg"
+},
+
+{
+  question: "<p>Hogyan tudják elolvasni a vakok a Braille-írást?</p>",
+  type: "single",
+  options: ["A betűk színének felismerésével","A pontok formájának kitapintásával","Nagyító segítségével","A betűk hangos felolvasásával"],
+  correct: [1],
+  points:1,
+  leftText:"<p>A francia Louis Braille 1821-ben kidolgozta vak emberek számára a speciális technikákat alkalmazó ábécét, a  Braille-írást. Minden egyes Braille-karakter hat pontból áll, téglalap alakban elrendezve, két oszlopban. A pozíciók bármelyikén lehet pont, mely által összesen 64 variáció lehetséges. A karaktereket hátulról domborítják ki, a betűk tükörképi párja szerint. <br><br></p>",
+  leftImage:"tt_k102.jpg"
+},
+
+{
+  question: "<p>Próbáld ki te is! A számok jelkódja alapján találd ki, mely számot jelöltük a pontokkal!</p>",
+  type: "single",
+  options: ["1109","365","309","385"],
+  correct: [2],
+  points:1,
+  leftText:"<p>A francia Louis Braille 1821-ben kidolgozta vak emberek számára a speciális technikákat alkalmazó ábécét, a  Braille-írást. Minden egyes Braille-karakter hat pontból áll, téglalap alakban elrendezve, két oszlopban. A pozíciók bármelyikén lehet pont, mely által összesen 64 variáció lehetséges. A karaktereket hátulról domborítják ki, a betűk tükörképi párja szerint. <br><br></p>",
+  leftImage:"tt_k103.jpg"
+},
+
+{
+  question: "<p> <br><br>A szem ingere a fény. <br><br> Csoportosítsuk a természetes és mesterséges eredetű fényforrásokat<br></p>",
+  type:"dropdown-multiple-sentences",
+  sentences:[
+   
+    { text:"Gyertya: ", blanks:[1] },
+    { text:"Nap: ", blanks:[1]},
+    { text:"Villám: ", blanks:[1]},
+    { text:"Izzólámpa: ", blanks:[1] },
+    { text:"Szentjánosbogarak fénye: ", blanks:[2]},
+    { text:"Lézer: ", blanks:[1]},
+    ],
+  options:[
+    ["természetes","mesterséges"],
+    ["természetes","mesterséges"],
+["természetes","mesterséges"],
+["természetes","mesterséges"],
+["természetes","mesterséges"],
+["természetes","mesterséges"],
+],
+    correct:[1,0,0,1,0,1],
+
+  points:6,
+  leftText:"<p><br><br></p>",
+  leftImage:"tt_k104.jpg",
+},
+
+{
+  question: "<p> <br><br>Döntsd el az alábbi, fényhez kapcsolódó állításokról, hogy igazak vagy hamisak!<br></p>",
+  type:"dropdown-multiple-sentences",
+  sentences:[
+    { text:"A zöld növények napfény segítségével oxigént állítanak elő. ", blanks:[8] },
+    { text:"Csak azokat a tárgyakat látjuk, amik maguk világítanak vagy valamilyen fényforrás fénye verődik vissza róluk. ", blanks:[15] },
+    { text:"A fény minden élőlény számára nélkülözhetetlen. ", blanks:[6]},
+        ],
+  options:[
+    ["igaz","hamis"],
+    ["igaz","hamis"],
+    ["igaz","hamis"],
+   ],
+    correct:[0,0,1],
+
+  points:3,
+  leftText:"<p><br><br></p>",
+  leftImage:"tt_k105.jpg",
+},
+
+{
+  question: "<p>A Nap egy csillag, van saját fénye. De mi a helyzet a Holddal? <br><br>Válaszd ki, amelyik igaz a Föld egyetlen holdjára!</p>",
+  type: "single",
+  options: ["A Hold nem csillag, nincs saját fénye. A Nap fényét veri vissza, ezért látható az égbolton.","A Hold nem csillag ugyan, de van saját fénye.","A Hold is csillag, ezért láthatjuk az égbolton.","A Holdnak is van saját fénye, de a Földről visszaverődő fénysugarak is megvilágítják."],
+  correct: [0],
+  points:1,
+  leftText:"<p><br><br></p>",
+  leftImage:"tt_k106.jpg",
+
+},
+
+{
+  question: "<p>Alex egy gumicsövön keresztül próbálja megnézni a gyertya lángját. Mit hibázott el a második kísérlet elvégzésekor? <br><br></p>",
+  type: "single",
+  options: ["Nem a fény felé nézett","Nem tartotta egyenesen a csövet","Nem hibázott semmit",],
+  correct: [1],
+  points:1,
+  leftText:"<p>A fény útja<br></p>",
+  leftImage:"tt_k107.jpg"
+},
+
+{
+  question: "<p>Alex egyenes gumicsövön keresztül látja a gyertya lángját. Mit bizonyít ez a kísérlet? <br><br></p>",
+  type: "single",
+  options: ["A fény szóródik","A fény egyenes vonalban terjed","A fény visszaverődik","A fény elnyelődik"],
+  correct: [1],
+  points:1,
+  leftText:"<p>A fény útja<br></p>",
+  leftImage:"tt_k107.jpg"
+},
+
+{
+  question: "<p>Mely anyagból készült testnek nincs árnyéka?  <br><br></p>",
+  type: "single",
+  options: ["Fa","Acél","Kartonpapír","Üveg"],
+  correct: [3],
+  points:1,
+  leftText:"<p>Fény és árnyék.<br><br></p>",
+  leftImage:"tt_k108.jpg"
+},
+
+{
+  question: "<p>Mi az árnyék?  <br><br></p>",
+  type: "single",
+  options: ["A fény által megvilágított terület","A test által kibocsátott fény","A tér azon része, ahová nem jut el a fény","A fény visszaverődése"],
+  correct: [2],
+  points:1,
+  leftText:"<p> <br><br></p>",
+  leftImage:"tt_k108.jpg"
+},
+
+{
+  question: "<p>Melyik állítás igaz a teljes napfogyatkozásra?  <br><br></p>",
+  type: "single",
+  options: ["A Föld árnyéka eltakarja a Napot","A Hold teljes árnyéka a Földre vetül","A Nap árnyéka takarja el a Földet","A Hold áthalad a Föld árnyékán"],
+  correct: [1],
+  points:1,
+  leftText:"<p>A napfogyatkozás is árnyékjelenségen alapszik. Magyarországon 1999. augusztus 11-én volt teljes napfogyatkozás, az égbolt egy rövid időre elsötétült. <br><br></p>",
+  leftImage:"tt_k109.jpg"
+},
+];
+
+let currentIdx = 0;
+
+function initQuiz() {
+    renderNavigator();
+    renderQuestions();
+    showQuestion(0);
+}
+
+function renderNavigator() {
+    const nav = document.getElementById("question-navigator");
+    nav.innerHTML = "";
+    quizData.forEach((_, i) => {
+        const span = document.createElement("span");
+        span.className = "qn";
+        span.id = `nav-${i}`;
+        span.innerText = i + 1;
+        span.onclick = () => showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function renderQuestions() {
+    const quiz = document.getElementById("quiz");
+    quiz.innerHTML = "";
+    quizData.forEach((q, i) => {
+        const div = document.createElement("div");
+        div.className = "question";
+        div.id = `q-${i}`;
+        
+        const qTitle = document.createElement("p");
+        qTitle.innerHTML = `<strong>${q.question || ""}</strong>`;
+        div.appendChild(qTitle);
+
+        div.appendChild(buildInputs(q, i));
+        
+        // Gombok
+        const btnContainer = document.createElement("div");
+        btnContainer.className = "question-buttons";
+        
+        const prev = document.createElement("button");
+        prev.innerText = "← Előző";
+        prev.onclick = () => showQuestion(i - 1);
+        if (i === 0) prev.style.visibility = "hidden";
+        
+        const next = document.createElement("button");
+        next.className = "btn-blue";
+        next.innerText = i === quizData.length - 1 ? "Befejezés" : "Következő →";
+        next.onclick = () => i === quizData.length - 1 ? finishQuiz() : showQuestion(i + 1);
+
+        btnContainer.appendChild(prev);
+        btnContainer.appendChild(next);
+        div.appendChild(btnContainer);
+        
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q, qIdx) {
+    const wrap = document.createElement("div");
+    
+    if (q.type === "dropdown-multiple-sentences") {
+        let optIdx = 0;
+        q.sentences.forEach(sentence => {
+            const line = document.createElement("div");
+            line.className = "dropdown-sentence";
+            const words = sentence.text.split(" ");
+            
+            words.forEach((word, wIdx) => {
+                if (sentence.blanks && sentence.blanks.includes(wIdx)) {
+                    const select = document.createElement("select");
+                    select.dataset.q = qIdx;
+                    select.dataset.opt = optIdx;
+                    select.innerHTML = `<option value="">Válassz...</option>`;
+                    q.options[optIdx].forEach((opt, oi) => {
+                        const o = document.createElement("option");
+                        o.value = oi;
+                        o.textContent = opt;
+                        select.appendChild(o);
+                    });
+                    select.onchange = () => updateNavStatus(qIdx);
+                    line.appendChild(select);
+                    line.appendChild(document.createTextNode(" "));
+                    optIdx++;
+                } else {
+                    line.appendChild(document.createTextNode(word + " "));
+                }
+            });
+            wrap.appendChild(line);
+        });
+    } else if (q.type === "single" || q.type === "multi") {
+        q.options.forEach((opt, oi) => {
+            const label = document.createElement("label");
+            const inputType = q.type === "single" ? "radio" : "checkbox";
+            label.innerHTML = `<input type="${inputType}" name="q${qIdx}" value="${oi}"> ${opt}`;
+            label.querySelector("input").onchange = () => updateNavStatus(qIdx);
+            wrap.appendChild(label);
+        });
+    }
+    return wrap;
+}
+
+function showQuestion(n) {
+    currentIdx = n;
+    document.querySelectorAll(".question").forEach(q => q.classList.remove("active"));
+    document.getElementById(`q-${n}`).classList.add("active");
+    
+    document.querySelectorAll(".qn").forEach(nav => nav.classList.remove("active-nav"));
+    document.getElementById(`nav-${n}`).classList.add("active-nav");
+
+    // Bal panel frissítése
+    const q = quizData[n];
+    const left = document.getElementById("left-panel");
+    left.innerHTML = `<h2>Cím</h2>`;
+    if (q.leftText) {
+        const textDiv = document.createElement("div");
+        textDiv.innerHTML = q.leftText;
+        left.appendChild(textDiv);
+    }
+    if (q.leftImage) {
+        const img = document.createElement("img");
+        img.src = q.leftImage;
+        img.onclick = () => openZoom(img.src);
+        img.onerror = () => img.style.display = "none";
+        left.appendChild(img);
+    }
+
+    
+}
+
+function updateNavStatus(qIdx) {
+    const q = quizData[qIdx];
+    const navBtn = document.getElementById(`nav-${qIdx}`);
+    const wrap = document.getElementById(`q-${qIdx}`);
+    
+    let isStarted = false;
+    let isComplete = false;
+
+    if (q.type === "dropdown-multiple-sentences") {
+        const selects = [...wrap.querySelectorAll("select")];
+        const filled = selects.filter(s => s.value !== "").length;
+        isStarted = filled > 0;
+        isComplete = filled === selects.length;
+    } else {
+        const checked = [...wrap.querySelectorAll("input:checked")];
+        isStarted = checked.length > 0;
+        isComplete = q.type === "single" ? checked.length === 1 : checked.length >= q.correct.length;
+    }
+
+    if (!isStarted) navBtn.style.backgroundColor = "var(--danger)";
+    else if (!isComplete) navBtn.style.backgroundColor = "var(--warning)";
+    else navBtn.style.backgroundColor = "var(--success)";
+}
+
+function finishQuiz() {
+    let totalScore = 0;
+    let maxScore = 0;
+    let detailsHtml = "";
+
+    quizData.forEach((q, i) => {
+        let qScore = 0;
+        const wrap = document.getElementById(`q-${i}`);
+        maxScore += q.points;
+
+        if (q.type === "dropdown-multiple-sentences") {
+            const selects = [...wrap.querySelectorAll("select")];
+            let correctCount = 0;
+            selects.forEach(s => {
+                const optIdx = parseInt(s.dataset.opt);
+                if (s.value !== "" && parseInt(s.value) === q.correct[optIdx]) correctCount++;
+            });
+            // Arányos pontozás (ha kérted, itt egyszerűbb: ahány jó, annyi pont)
+            qScore = correctCount; 
+        } else if (q.type === "single") {
+            const selected = wrap.querySelector("input:checked");
+            if (selected && parseInt(selected.value) === q.correct[0]) qScore = q.points;
+        } else if (q.type === "multi") {
+            const selected = [...wrap.querySelectorAll("input:checked")].map(i => parseInt(i.value));
+            const correctOnes = selected.filter(v => q.correct.includes(v)).length;
+            const incorrectOnes = selected.filter(v => !q.correct.includes(v)).length;
+            qScore = correctOnes - incorrectOnes;
+            if (qScore < 0) qScore = 0;
+        }
+        
+        totalScore += qScore;
+        detailsHtml += `<div><strong>${i+1}. kérdés:</strong> ${qScore} / ${q.points} pont</div>`;
+    });
+
+    const percent = Math.round((totalScore / maxScore) * 100);
+    document.getElementById("quiz-container").style.display = "none";
+    document.getElementById("resultPage").style.display = "block";
+    
+    document.getElementById("resultSummary").innerHTML = `
+        <div style="font-size:3rem; font-weight:bold; color:var(--primary);">${percent}%</div>
+        <div>Összpontszám: ${totalScore} / ${maxScore}</div>
+    `;
+    document.getElementById("resultDetails").innerHTML = detailsHtml;
+}
+
+function openZoom(src) {
+    const overlay = document.getElementById("image-overlay");
+    const img = document.getElementById("overlay-img");
+    img.src = src;
+    overlay.style.display = "flex";
+}
+
+function closeZoom() {
+    document.getElementById("image-overlay").style.display = "none";
+}
+
+document.getElementById("restartBtn").onclick = () => location.reload();
+
+window.onload = initQuiz;
+</script>
+</body>
+</html>

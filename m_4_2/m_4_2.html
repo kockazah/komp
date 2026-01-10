@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Matematika Kompetencia Kvíz 4. osztály</title>
+<style>
+body { font-family: Arial,sans-serif; margin:0; padding:0; }
+#quiz-container { display:flex; flex-direction:row; max-width:1200px; margin:auto; gap:0; }
+#quiz-container > div { padding:20px; }
+#quiz-container .left { width:40%; border-right:2px solid #ddd; max-height:80vh; overflow-y:auto; }
+#quiz-container .right { width:60%; display:flex; flex-direction:column; max-height:80vh; }
+#quiz-container .right .quiz-header { position: sticky; top:0; background-color:white; z-index:10; padding-bottom:10px; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; }
+#quiz-container .right .quiz-questions { overflow-y:auto; flex-grow:1; position:relative; }
+#question-navigator { margin-bottom:10px; }
+#question-navigator .qn { display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; border-radius:50%; background-color:red; color:white; margin-right:5px; cursor:pointer; }
+#question-navigator .qn.answered { background-color:green; }
+.question { display:none; }
+.question.active { display:block; }
+.question-buttons { display:flex; justify-content:space-between; margin-top:10px; }
+#result { display:none; font-size:1.2em; color:blue; margin-top:20px; }
+#restartBtn { display:none; margin-top:10px; padding:10px 20px; }
+#left-panel img { width: 100%; height: auto; object-fit: contain; display:block; margin-top:10px; }
+#left-panel { display:flex; flex-direction:column; justify-content:flex-start; max-height:80vh; overflow-y:auto; }
+@media (max-width:768px) { #quiz-container { flex-direction:column; } #quiz-container .left,#quiz-container .right { width:100%; max-height:none; border-right:none; } }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>Matematika kompetenciamérés gyakorlás <p>4. osztály</h2>
+    <!-- Kép vagy szöveg kérdésenként ide -->
+  </div>
+  <div class="right">
+    <div class="quiz-header">
+      <h2>Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+    <button id="finishBtn" onclick="finishQuiz()" style="margin-top:10px; padding:10px 20px; display:none;">Lezárás</button>
+    <div id="result"></div>
+    <button id="restartBtn" onclick="restartQuiz()">Vissza</button>
+  </div>
+</div>
+<script>
+  if (sessionStorage.getItem("auth") !== "ok") {
+    window.location.href = "login.html";
+  }
+</script>
+
+<script>
+// --- Kvíz adatok ---
+const quizData = [
+{question:"1. Egy boltban 24 almát és 18 körtét árulnak. Egy csomagba hat gyümölcs kerül, hány csomag készül összesen?", options:["5","6","7","8"], 
+correct:2, 
+leftText: "Hány csomag készül?",
+leftImage:"m_4_2_1.jpg"},
+
+{question:"2. Pisti minden nap 15 oldalt olvas a könyvéből. Ha a könyv 120 oldalas, hány nap alatt olvassa el?", 
+options:["7","8","9","6"], 
+correct:1, 
+leftText: "Hány nap alatt olvassa el Pisti a könyvet?",
+leftImage:"m_4_2_2.jpg"},
+
+{question:"3. Egy kertben 5 sor paradicsom van, soronként 7 növény. Ha minden növényről 3 paradicsomot szednek le, hány paradicsomot szednek összesen?", 
+options:["30","35","105","45"], 
+correct:2, 
+leftText: "Mennyi gyümölcsöt szedtek?",
+leftImage:"m_4_2_3.jpg"},
+
+{question:"4. Egy osztályban 28 tanuló van. Ha 4 csoportba osztják őket egyenlően, hány tanuló lesz egy csoportban?", 
+options:["6","7","8","9"], 
+correct:1, 
+leftText: "Tanulócsoportok",
+leftImage:"m_4_2_4.jpg"},
+
+{question:"5. Egy boltban 8 csomag keksz van, mindegyik csomagban 12 darab keksz. Ha 3 csomagot eladnak, hány keksz marad?", 
+options:["60","84","72","96"], 
+correct:0, 
+leftText: "Mennyi keksz marad?",
+leftImage:"m_4_2_5.jpg"},
+
+{question:"6. Anna 36 oldalt tanul meg 4 nap alatt. Hány oldalt tanul naponta átlagosan?", 
+options:["8","9","10","12"], 
+correct:1, 
+leftText: "Mennyit tanul Anna?",
+leftImage:"m_4_2_6.jpg"},
+
+{question:"7. Egy buszon 45 utas van. 18-an leszálltak, majd felszállt 10. Hány utas van most a buszon?", 
+options:["37","35","38","36"], 
+correct:0, 
+leftText: "A busz utasai",
+leftImage:"m_4_2_7.jpg"},
+
+{question:"8. Egy könyvben 128 oldal van. Péter minden nap 15 oldalt olvas, hány oldal marad az utolsó napra?", 
+options:["7","8","6","9"], 
+correct:1, 
+leftText: "A maradék oldalak",
+leftImage:"m_4_2_8.jpg"},
+
+{question:"9. Egy gyümölcsösben 7 sor almafa van, soronként 8 fa. Ha minden fán 12 alma terem, hány alma lesz összesen?", 
+options:["672","56","84","96"], 
+correct:0, 
+leftText: "Gyümölcsök száma",
+leftImage:"m_4_2_9.jpg"},
+
+{question:"10. Egy szatyorban 150 alma és 100 körte van. Hány gyümölcs van összesen?", 
+options:["250","240","260","200"], 
+correct:0, 
+leftText: "Gyümölcsök száma",
+leftImage:"m_4_2_10.jpg"},
+
+{question:"11. Egy doboz csoki ára 480 Ft. Ha 4 dobozt veszünk és 2 dobozt ingyen kapunk, mennyit fizetünk?", 
+options:["1920 Ft","480 Ft","2880 Ft","4800 Ft"], 
+correct:0, 
+leftText: "Mennyibe kerül?",
+leftImage:"m_4_2_11.jpg"},
+
+{question:"12. Egy mozi 120 férőhelyes. Reggel 45 jegyet adtak el, délután 30-at, este pedig 25-öt. Hány szabad hely maradt?", 
+options:["20","25","30","35"], 
+correct:0, 
+leftText: "Szabad helyek a moziban",
+leftImage:"m_4_2_12.jpg"},
+
+{question:"13. Egy kertben 8 sor paprika van, soronként 6 növény. Ha minden növényről 4 paprika terem, hány paprika lesz összesen?", 
+options:["48","24","32","192"], 
+correct:3, 
+leftText: "Paprikamező",
+leftImage:"m_4_2_13.jpg"},
+
+{question:"14. Egy osztályban 24 gyerek van. Ha minden nap 3 gyerek kap jutalmat, hány napig tart a jutalomosztás?", 
+options:["8","7","6","9"], 
+correct:0, 
+leftText: "Jutalomosztás",
+leftImage:"m_4_2_14.jpg"},
+
+{question:"15. Egy boltban 12 kg alma és 15 kg körte van. Ha 3 kg almát és 5 kg körtét eladnak, hány kg gyümölcs marad összesen?", 
+options:["18","19","20","21"], 
+correct:1, 
+leftText: "Mennyi gyümölcs marad?",
+leftImage:"m_4_2_15.jpg"},
+];
+
+// --- Számsor ---
+const navDiv = document.getElementById("question-navigator");
+quizData.forEach((q,i)=>{
+  const span = document.createElement('span');
+  span.className='qn';
+  span.innerText=i+1;
+  span.addEventListener('click',()=> showQuestion(i));
+  navDiv.appendChild(span);
+});
+
+// --- Kérdések ---
+const quizDiv = document.getElementById("quiz");
+quizData.forEach((q,index)=>{
+  let html = `<div class='question' id='q${index}'>
+    <p><strong>${q.question}</strong></p>`;
+  q.options.forEach((opt,i)=>{
+    html+=`<label style='display:block;margin-left:10px;'>
+      <input type='radio' name='q${index}' value='${i}'> ${opt}
+    </label>`;
+  });
+  html+=`<div class='question-buttons'>
+      <button class='prevBtn' onclick='prevQuestion()'>Előző</button>
+      <button class='nextBtn' onclick='nextQuestion()'>Következő</button>
+    </div>`;
+  html+="</div>";
+  quizDiv.innerHTML+=html;
+});
+
+// --- Alapértelmezett ---
+let currentQuestion=0;
+document.querySelectorAll('.question').forEach((q,i)=>{
+  if(i===0) q.querySelector('.prevBtn').style.display='none';
+  if(i===quizData.length-1) q.querySelector('.nextBtn').style.display='none';
+});
+document.getElementById(`q${currentQuestion}`).classList.add('active');
+
+// --- Kérdésváltás ---
+function showQuestion(n){
+  const question = quizData[n];
+  const leftPanel = document.getElementById("left-panel");
+  leftPanel.innerHTML = `<h2>Matematika kompetenciamérés gyakorlás 4. osztály</h2>`;
+
+if(question.leftText){
+  const textNode = document.createElement('p');
+  textNode.innerText = question.leftText;
+  leftPanel.appendChild(textNode);
+}
+
+if(question.leftImage){
+    const imgTag = document.createElement('img');
+    imgTag.src = question.leftImage;
+    imgTag.alt = `Kép a ${n+1}. kérdéshez`;
+    imgTag.style.maxWidth="100%";
+    imgTag.style.marginTop="10px";
+    leftPanel.appendChild(imgTag);
+  }
+
+  // Aktív kérdés
+  document.querySelectorAll('.question').forEach(q=>q.classList.remove('active'));
+  document.getElementById(`q${n}`).classList.add('active');
+
+  // Válaszfigyelés minden kérdésre
+  document.querySelectorAll(`#q${n} input[type=radio]`).forEach(el=>{
+    el.addEventListener('change',()=>{
+      document.querySelectorAll('#question-navigator .qn')[n].classList.add('answered');
+    });
+  });
+
+  currentQuestion=n;
+  document.querySelectorAll('.prevBtn').forEach(b=>b.style.display='inline-block');
+  document.querySelectorAll('.nextBtn').forEach(b=>b.style.display='inline-block');
+  if(n===0) document.getElementById(`q${n}`).querySelector('.prevBtn').style.display='none';
+  if(n===quizData.length-1) document.getElementById(`q${n}`).querySelector('.nextBtn').style.display='none';
+  if(n===quizData.length-1) document.getElementById("finishBtn").style.display="inline-block";
+  else document.getElementById("finishBtn").style.display="none";
+}
+
+function prevQuestion(){ if(currentQuestion>0) showQuestion(currentQuestion-1); }
+function nextQuestion(){ if(currentQuestion<quizData.length-1) showQuestion(currentQuestion+1); }
+
+// --- Lezárás és eredmény ---
+function finishQuiz(){
+  let score=0;
+  quizData.forEach((q,index)=>{
+    const answer = document.querySelector(`input[name='q${index}']:checked`);
+    if(answer && Number(answer.value)===q.correct) score++;
+  });
+  document.querySelector('.quiz-questions').style.display="none";
+  document.getElementById("finishBtn").style.display="none";
+  document.querySelector('.quiz-header').style.display="none";
+  document.getElementById("result").style.display="block";
+  document.getElementById("result").innerText=`Eredményed: ${score} / ${quizData.length}`;
+  document.getElementById("restartBtn").style.display="inline-block";
+  document.querySelector('.left').style.display="none";
+}
+
+// --- Vissza ---
+function restartQuiz(){
+  document.querySelectorAll('input[type=radio]').forEach(el=>el.checked=false);
+  document.querySelectorAll('#question-navigator .qn').forEach(q=>q.classList.remove('answered'));
+  document.querySelector('.quiz-questions').style.display="block";
+  document.querySelector('.quiz-header').style.display="flex";
+  document.querySelector('.left').style.display="block";
+  document.getElementById("result").style.display="none";
+  document.getElementById("restartBtn").style.display="none";
+  currentQuestion=0;
+  showQuestion(0);
+}
+
+// --- Indítás ---
+showQuestion(0);
+</script>
+</body>
+</html>
