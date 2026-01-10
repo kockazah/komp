@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KRESZ Kompetencia - Táblapárosító</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg-color: #f3f4f6;
+            --panel-bg: #ffffff;
+            --text-color: #1f2937;
+            --border-color: #e5e7eb;
+            --radius: 12px;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; margin:0; background-color: var(--bg-color); color: var(--text-color); height: 100vh; overflow: hidden; }
+        
+        #quiz-container { 
+            display:flex; max-width:1400px; margin: 15px auto; 
+            background: var(--panel-bg); border-radius: var(--radius); 
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); height: calc(100vh - 30px);
+        }
+        
+        .left { width:32%; border-right:2px solid var(--border-color); padding: 20px; overflow-y:auto; background: #fafafa; }
+        .left img { width: 100%; border-radius: 8px; margin-top: 15px; border: 1px solid var(--border-color); }
+
+        .right { width:68%; display:flex; flex-direction:column; padding: 20px; overflow: hidden; }
+
+        .quiz-header { border-bottom:1px solid var(--border-color); margin-bottom: 15px; padding-bottom: 10px; display:flex; justify-content:space-between; align-items:center; }
+        #question-navigator { display:flex; gap: 8px; }
+        .qn { width:32px; height:32px; line-height:32px; text-align:center; border-radius:50%; background: var(--danger); color:white; font-weight:bold; cursor:pointer; font-size: 0.9rem; transition: 0.2s; }
+
+        .quiz-questions { flex-grow:1; overflow-y: auto; padding-right: 5px; }
+        .question { display:none; }
+        .question.active { display:block; }
+
+        .drag-match-wrapper { display: flex; flex-direction: column; gap: 20px; }
+
+        .names-bank { 
+            background: #f1f5f9; padding: 15px; border-radius: var(--radius); 
+            display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+            border: 1px solid var(--border-color); min-height: 80px;
+        }
+
+        .draggable-name { 
+            background: var(--primary); color: white; padding: 8px 15px; 
+            border-radius: 6px; cursor: grab; font-size: 0.85rem; font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); user-select: none;
+        }
+
+        .signs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .sign-row { 
+            display: flex; align-items: center; background: #fff; 
+            border: 1px solid var(--border-color); padding: 8px; border-radius: 8px; 
+            height: 60px;
+        }
+
+        .sign-row img { width: 45px; height: 45px; margin-right: 12px; flex-shrink: 0; }
+        
+        .drop-zone { 
+            flex-grow: 1; height: 42px; border: 2px dashed var(--border-color); border-radius: 6px; 
+            display: flex; align-items: center; justify-content: center; 
+            background: #f9fafb; font-size: 0.8rem; color: #9ca3af; text-align: center; padding: 0 5px;
+        }
+        .drop-zone.occupied { border: 2px solid var(--success); background: #f0fdf4; }
+        .drop-zone .draggable-name { width: 90%; cursor: pointer; }
+
+        .question-buttons { display:flex; justify-content:space-between; margin-top:20px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+        button { padding:10px 25px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-next { background: var(--primary); color: white; }
+        .btn-finish { background: var(--success); color: white; }
+        .btn-prev { background: #9ca3af; color: white; }
+
+        #resultPage { display:none; padding:60px; text-align:center; max-width: 600px; margin: 50px auto; background: white; border-radius: var(--radius); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+<div id="quiz-container">
+    <div class="left" id="left-panel"></div>
+    <div class="right">
+        <div class="quiz-header">
+            <h2 style="margin:0; font-size: 1.3rem;">Közlekedési táblák felismerése</h2>
+            <div id="question-navigator"></div>
+        </div>
+        <div class="quiz-questions" id="quiz-root"></div>
+    </div>
+</div>
+
+<div id="resultPage">
+    <h1 style="color: var(--primary);">Eredmény</h1>
+    <div id="resultText" style="font-size: 1.5rem; margin: 30px 0;"></div>
+    <button onclick="location.reload()" class="btn-next">Újrakezdés</button>
+</div>
+
+<script>
+const masterSignList = [
+    { name: "Autópálya", img: "kresz01.jpg", id: "t1" },
+    { name: "Autópálya vége", img: "kresz02.jpg", id: "t2" },
+    { name: "Autóút", img: "kresz03.jpg", id: "t3" },
+    { name: "Autóút vége", img: "kresz04.jpg", id: "t4" },
+    { name: "Főútvonal", img: "kresz05.jpg", id: "t5" },
+    { name: "Főútvonal vége", img: "kresz06.jpg", id: "t6" },
+    { name: "Elsőbbségadás kötelező", img: "kresz07.jpg", id: "t7" },
+    { name: "Állj! Elsőbbségadás kötelező", img: "kresz08.jpg", id: "t8" },
+    { name: "A szembejövő forgalom elsőbbsége", img: "kresz09.jpg", id: "t9" },
+    { name: "Elsőbbség a szembejövő forgalommal szemben", img: "kresz10.jpg", id: "t10" },
+    { name: "Kötelező haladási irány", img: "kresz11.jpg", id: "t11" },
+    { name: "Kikerülési irány", img: "kresz12.jpg", id: "t12" },
+    { name: "Körforgalom", img: "kresz13.jpg", id: "t13" },
+    { name: "Kötelező legkisebb sebesség", img: "kresz14.jpg", id: "t14" },
+    { name: "Kötelező legkisebb sebesség vége", img: "kresz15.jpg", id: "t15" },
+    { name: "Kerékpárút", img: "kresz16.jpg", id: "t16" },
+    { name: "Kerékpárút vége", img: "kresz17.jpg", id: "t17" },
+    { name: "Gyalog- és kerékpárút", img: "kresz18.jpg", id: "t18" },
+    { name: "Gyalog- és kerékpárút vége", img: "kresz19.jpg", id: "t19" },
+    { name: "Hólánc használata kötelező", img: "kresz20.jpg", id: "t20" },
+    { name: "Jobbra bekanyarodni tilos", img: "kresz21.jpg", id: "t21" },
+    { name: "Balra bekanyarodni tilos", img: "kresz22.jpg", id: "t22" },
+    { name: "Megfordulni tilos", img: "kresz23.jpg", id: "t23" },
+    { name: "Sebességkorlátozás", img: "kresz24.jpg", id: "t24" },
+    { name: "Legkisebb követési távolság", img: "kresz25.jpg", id: "t25" },
+    { name: "Előzni tilos", img: "kresz26.jpg", id: "t26" },
+    { name: "Tehergépkocsival előzni tilos", img: "kresz27.jpg", id: "t27" },
+    { name: "Kötelező megállás", img: "kresz28.jpg", id: "t28" },
+    { name: "Szélességkorlátozás", img: "kresz29.jpg", id: "t29" },
+    { name: "Magasságkorlátozás", img: "kresz30.jpg", id: "t30" },
+    { name: "Hosszúságkorlátozás", img: "kresz31.jpg", id: "t31" },
+    { name: "Súlykorlátozás", img: "kresz32.jpg", id: "t32" },
+    { name: "Mindkét irányból behajtani tilos", img: "kresz33.jpg", id: "t33" },
+    { name: "Kerékpárral behajtani tilos", img: "kresz34.jpg", id: "t34" },
+    { name: "Behajtani tilos", img: "kresz35.jpg", id: "t35" },
+    { name: "Sebességkorlátozás vége", img: "kresz36.jpg", id: "t36" },
+    { name: "Előzési tilalom vége", img: "kresz37.jpg", id: "t37" },
+    { name: "Mozgó járművekre vonatkozó tilalmak vége", img: "kresz38.jpg", id: "t38" },
+    { name: "Megállni tilos", img: "kresz39.jpg", id: "t39" },
+    { name: "Várakozni tilos", img: "kresz40.jpg", id: "t40" },
+    { name: "Veszélyes útkanyarulat balra", img: "kresz41.jpg", id: "t41" },
+    { name: "Veszélyes útkanyarulat jobbra", img: "kresz42.jpg", id: "t42" },
+    { name: "Egymás utáni veszélyes útkanyarulatok", img: "kresz43.jpg", id: "t43" },
+    { name: "Veszélyes lejtő", img: "kresz44.jpg", id: "t44" },
+    { name: "Veszélyes emelkedő", img: "kresz45.jpg", id: "t45" },
+    { name: "Útszűkület", img: "kresz46.jpg", id: "t46" },
+    { name: "Szembejövő forgalom", img: "kresz47.jpg", id: "t47" },
+    { name: "Kompátkelés vagy nyitható híd", img: "kresz48.jpg", id: "t48" },
+    { name: "Rakpart vagy meredek part", img: "kresz49.jpg", id: "t49" },
+    { name: "Bukkanó", img: "kresz50.jpg", id: "t50" },
+    { name: "Egyenetlen úttest", img: "kresz51.jpg", id: "t51" },
+    { name: "Csúszós úttest", img: "kresz52.jpg", id: "t52" },
+    { name: "Gyalogosátkelés", img: "kresz53.jpg", id: "t53" },
+    { name: "Forgalomirányító fényjelző készülék", img: "kresz54.jpg", id: "t54" },
+    { name: "Egyenrangú utak kereszteződése", img: "kresz55.jpg", id: "t55" },
+    { name: "Útkereszteződés alárendelt úttal", img: "kresz56.jpg", id: "t56" },
+    { name: "Sorompó nélküli vasúti átjáró", img: "kresz57.jpg", id: "t57" },
+    { name: "Sorompóval biztosított vasúti átjáró", img: "kresz58.jpg", id: "t58" },
+    { name: "Egyéb veszély", img: "kresz59.jpg", id: "t59" },
+    { name: "Gyalogosok", img: "kresz60.jpg", id: "t60" },
+    { name: "Kerékpárosok", img: "kresz61.jpg", id: "t61" },
+    { name: "Vasúti átjáró kezdete", img: "kresz62.jpg", id: "t62" },
+    { name: "Kijelölt gyalogosátkelőhely", img: "kresz63.jpg", id: "t63" },
+    { name: "Egyirányú forgalmi út", img: "kresz64.jpg", id: "t64" },
+    { name: "Zsákutca", img: "kresz65.jpg", id: "t65" },
+    { name: "Autóbuszmegállóhely", img: "kresz66.jpg", id: "t66" },
+    { name: "Várakozóhely", img: "kresz67.jpg", id: "t67" },
+    { name: "Lakott terület kezdete", img: "kresz68.jpg", id: "t68" },
+    { name: "Lakott terület vége", img: "kresz69.jpg", id: "t69" },
+
+
+];
+
+let quizData = [];
+let currentQuestion = 0;
+
+function setupQuiz() {
+    const shuffled = [...masterSignList].sort(() => Math.random() - 0.5);
+    const pageSize = 10;
+    for (let i = 0; i < shuffled.length; i += pageSize) {
+        quizData.push({
+            pairs: shuffled.slice(i, i + pageSize),
+            leftImage: "https://images.unsplash.com/photo-1545147986-a9d6f210df77?q=80&w=600&auto=format&fit=crop",
+            leftText: "<h2>Párosítás</h2><p>Húzd a szókártyákat a táblák mellé!</p><p><b>Tipp:</b> Ha rákattintasz egy már behelyezett névre, az visszaugrik a gyűjtőbe.</p>"
+        });
+    }
+}
+
+function init() {
+    setupQuiz();
+    const quizRoot = document.getElementById("quiz-root");
+    const nav = document.getElementById("question-navigator");
+
+    quizData.forEach((q, qIdx) => {
+        const span = document.createElement("span");
+        span.className = "qn";
+        span.id = `nav-${qIdx}`;
+        span.innerText = qIdx + 1;
+        span.onclick = () => showQuestion(qIdx);
+        nav.appendChild(span);
+
+        const qDiv = document.createElement("div");
+        qDiv.className = "question";
+        qDiv.id = `q-${qIdx}`;
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "drag-match-wrapper";
+
+        const namesBank = document.createElement("div");
+        namesBank.className = "names-bank";
+        const signsGrid = document.createElement("div");
+        signsGrid.className = "signs-grid";
+
+        q.pairs.forEach((pair, pIdx) => {
+            const row = document.createElement("div");
+            row.className = "sign-row";
+            row.innerHTML = `
+                <img src="${pair.img}">
+                <div class="drop-zone" data-correct-id="${pair.id}" ondrop="drop(event)" ondragover="allowDrop(event)">...</div>
+            `;
+            signsGrid.appendChild(row);
+
+            const card = document.createElement("div");
+            card.className = "draggable-name";
+            card.draggable = true;
+            card.innerText = pair.name;
+            card.id = `card-${qIdx}-${pIdx}`;
+            card.dataset.id = pair.id;
+            card.ondragstart = (e) => e.dataTransfer.setData("text", e.target.id);
+            // Visszaküldés kattintásra
+            card.onclick = function() {
+                if(this.parentElement.classList.contains('drop-zone')) {
+                    const zone = this.parentElement;
+                    namesBank.appendChild(this);
+                    zone.classList.remove("occupied");
+                    zone.innerText = "...";
+                    updateNavStatus();
+                }
+            };
+            namesBank.appendChild(card);
+        });
+
+        // Keverés
+        const cards = Array.from(namesBank.children);
+        cards.sort(() => Math.random() - 0.5).forEach(c => namesBank.appendChild(c));
+
+        wrapper.appendChild(namesBank);
+        wrapper.appendChild(signsGrid);
+        qDiv.appendChild(wrapper);
+        
+        const btnRow = document.createElement("div");
+        btnRow.className = "question-buttons";
+        const isLast = qIdx === quizData.length - 1;
+        btnRow.innerHTML = `
+            <button class="btn-prev" onclick="showQuestion(${qIdx-1})" style="${qIdx===0?'visibility:hidden':''}">← Előző</button>
+            <button class="${isLast?'btn-finish':'btn-next'}" onclick="${isLast?'finish()':'showQuestion('+(qIdx+1)+')'}">
+                ${isLast?'Befejezés':'Következő →'}
+            </button>
+        `;
+        qDiv.appendChild(btnRow);
+        quizRoot.appendChild(qDiv);
+    });
+    showQuestion(0);
+}
+
+function showQuestion(n) {
+    document.querySelectorAll(".question").forEach(q => q.classList.remove("active"));
+    document.getElementById(`q-${n}`).classList.add("active");
+    currentQuestion = n;
+    const q = quizData[n];
+    document.getElementById("left-panel").innerHTML = `${q.leftText}<img src="${q.leftImage}">`;
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function allowDrop(e) { e.preventDefault(); }
+
+function drop(e) {
+    e.preventDefault();
+    const cardId = e.dataTransfer.getData("text");
+    const card = document.getElementById(cardId);
+    let zone = e.target;
+    while(zone && !zone.classList.contains('drop-zone')) zone = zone.parentElement;
+
+    if(zone) {
+        if(zone.children.length > 0) {
+            const oldCard = zone.children[0];
+            document.querySelector(`#q-${currentQuestion} .names-bank`).appendChild(oldCard);
+        }
+        zone.innerText = "";
+        zone.appendChild(card);
+        zone.classList.add("occupied");
+        updateNavStatus();
+    }
+}
+
+function updateNavStatus() {
+    const zones = document.getElementById(`q-${currentQuestion}`).querySelectorAll(".drop-zone");
+    const filled = Array.from(zones).filter(z => z.classList.contains("occupied")).length;
+    const navBtn = document.getElementById(`nav-${currentQuestion}`);
+    if(filled === 0) navBtn.style.background = "var(--danger)";
+    else if(filled < zones.length) navBtn.style.background = "var(--warning)";
+    else navBtn.style.background = "var(--success)";
+}
+
+function finish() {
+    let score = 0;
+    const total = masterSignList.length;
+    document.querySelectorAll(".drop-zone").forEach(zone => {
+        const card = zone.querySelector(".draggable-name");
+        if(card && card.dataset.id === zone.dataset.correctId) score++;
+    });
+    const percent = Math.round(score/total * 100);
+    document.getElementById("quiz-container").style.display = "none";
+    document.getElementById("resultPage").style.display = "block";
+    document.getElementById("resultText").innerHTML = `<b>${percent}%</b><br>${total} táblából ${score} helyes.`;
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
