@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Szövegértés-matek feladatok</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background-color: var(--bg-color); color: var(--text-color); }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+    }
+    
+    #quiz-container .left { 
+        width:40%; border-right:2px solid var(--border-color); 
+        padding: 30px; overflow-y:auto; background-color: #fafafa;
+    }
+    
+    #quiz-container .right { 
+        width:60%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden;
+    }
+    
+    .quiz-header { 
+        padding-bottom:15px; border-bottom:1px solid var(--border-color); 
+        margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; 
+    }
+    
+    .quiz-questions { overflow-y:auto; flex-grow:1; padding-right: 10px; }
+    
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { 
+        width:32px; height:32px; line-height:32px; text-align:center; 
+        border-radius:50%; background-color: var(--danger); color:white; 
+        font-weight: bold; cursor:pointer; transition: 0.2s;
+    }
+    
+    .question { display:none; animation: fadeIn 0.3s; }
+    .question.active { display:block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:30px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    
+    button { 
+        padding:12px 24px; border-radius: 8px; border: none; 
+        font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-prev { background-color: #9ca3af; color: white; }
+    
+    #resultPage { display:none; padding:60px; text-align:center; max-width: 800px; margin: 50px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    #left-panel h2 { color: var(--primary); margin-top: 0; }
+    #left-panel img { 
+        width: 100%; max-height: auto; object-fit: contain; 
+        display:block; margin: 20px 0; border-radius: 8px;
+        cursor:zoom-in; border: 1px solid var(--border-color);
+    }
+    
+    label { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    label:hover { background-color: #f8fafc; border-color: var(--primary); }
+    input { margin-right: 12px; width: 18px; height: 18px; cursor: pointer; }
+    select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 1rem; background-color: white; }
+
+    #image-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; }
+    #overlay-img { max-width: 100%; max-height: 90%; border-radius: 8px; cursor: zoom-out; transition: transform 0.3s ease; }
+
+    .dropdown-sentence { margin-bottom: 18px; line-height: 1.8; font-size: 1.1rem; }
+
+    @media (max-width:768px) { 
+        #quiz-container { flex-direction:column; height: auto; margin: 0; border-radius: 0; } 
+        #quiz-container .left, #quiz-container .right { width:100%; height: auto; border-right:none; } 
+    }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>4. osztály</h2>
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <h2 style="margin:0;">Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultHeader">Eredmény</h1>
+  <div id="resultText" style="font-size: 1.1rem; line-height: 1.6; margin: 20px 0; text-align: left;"></div>
+  <button id="restartBtn" class="btn-next">Újrakezdés</button>
+</div>
+
+<div id="image-overlay" onclick="closeOverlay()">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+const quizData = [
+    {
+        question: "1. Hány ember tudta volna alig átfogni az öreg tölgyfa törzsét?",
+        type: "single",
+        options: ["Három","Tíz","Öt","Kettő"],
+        correct: [2],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+{
+        question: "2. Ki állította magáról, hogy egyszer megmászta a tölgyfát?",
+        type: "single",
+        options: ["Ilona","A narrátor","Berta Jancsi","A vándorok"],
+        correct: [2],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+ 
+{
+        question: "3. Mely madarak pihentek meg ősszel a tölgyfa csonkjain? (Válaszd ki az összes helyeset!)",
+        type: "multi",
+        options: ["Gólyák","Sasok","Fecskék","Sólymok"],
+        correct: [1,3],
+        points: 2,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+
+ {
+        question: "4. Milyen színű ruhát (réklit) viselt a kislány?",
+        type: "single",
+        options: ["Zöld","Sárga","Piros","Kék"],
+        correct: [2],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+{
+        question: "5. Melyik virág nyílt ki először a fa alatt tavasszal?",
+        type: "single",
+        options: ["Ibolya","Százszorszép","Hóvirág","Kökörcsin"],
+        correct: [0],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+{
+        question: "6. Mihez hasonlította a szerző Ilona csuklóját?",
+        type: "single",
+        options: ["Egy vékony ághoz","Nádszálhoz","Selyemzsinórhoz","A veréb lábához"],
+        correct: [3],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+{
+        question: "7. Mit érzett a fiú, miután Ilona sírni kezdett? (Válaszd ki az összes helyeset!)",
+        type: "multi",
+        options: ["Bűntudatot és szánalmat érzett","Dühöt érzett, hogy a lány sír","A szíve elnehezült ('ősz lett' benne)","Győzelmet érzett, mert övé lett a virág"],
+        correct: [0,2],
+        points: 2,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+{
+        question: "8. Milyen színű madzagot ajánlott fel a fiú az ibolyák megkötéséhez?",
+        type: "single",
+        options: ["Zöld","Kék","Fehér","Piros"],
+        correct: [3],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+{
+        question: "9. Hogyan viselkedett a tölgyfa a téli álmokban?",
+        type: "single",
+        options: ["Csendben aludt a hó alatt","Elesett a nagy hófúvásban","Menedéket nyújtott a vándoroknak","Recsegve viaskodott a széllel"],
+        correct: [3],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+{
+        question: "10. Melyik állítás jellemző a mesélő és a tölgyfa kapcsolatára?",
+        type: "single",
+        options: ["Csak a virágok miatt járt oda","Félt a fától a méretei miatt","Ki akarta vágni a fát","A barátjának tekintette az óriást"],
+        correct: [3],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+{
+        question: "11. Milyen volt a fiú szorítása, miután megszánta a kislányt?",
+        type: "single",
+        options: ["Hideg és elutasító","Fájdalmas","Erős és követelőző","Olyan, mint a bársony"],
+        correct: [3],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+{
+        question: "12. Mi történt a virágokkal, amikor a fiú megszorította Ilona csuklóját? (Válaszd ki az összes helyeset!)",
+        type: "multi",
+        options: ["A kislány tenyere kinyílt","Ilona eldobta őket a fiúhoz","A kék virágok lehullottak a földre","A fiú kitépte őket a kezéből"],
+        correct: [0,2],
+        points: 2,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+{
+        question: "13. Milyen hangot adtak a tavalyi száraz levelek, amikor a fiút elöntötte a bűntudat?",
+        type: "single",
+        options: ["Zizegtek","Dübörögtek","Némák maradtak","Sziszegtek"],
+        correct: [3],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+{
+        question: "14. Mit csinált Ilona, miután felállt a földről?",
+        type: "single",
+        options: ["Megütötte a fiút","Lesimította a kötényét","Azonnal elszaladt","Nevetni kezdett"],
+        correct: [1],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+{
+        question: "15. Melyik évszakban játszódik a történet fő eseménye (a találkozás)?",
+        type: "single",
+        options: ["Ősz","Tavasz","Tél","Nyár"],
+        correct: [1],
+        points: 1,
+        leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+{
+    question: "<p>16. Válaszd ki a legördülő menüből.<br><br>Igaz vagy hamis?",
+    type: "dropdown-multiple-sentences",
+    sentences: [
+        { text: "A narrátor tavasszal a hátát a fa durva kérgének támasztotta. ", blanks: [10] },
+        { text: "Ilona és a narrátor nem ismerték egymást korábban. ", blanks: [8] },
+	{ text: "Ilona végül elvitte az összeszedett csokrot magával. ", blanks: [7] },
+	{ text: "Berta Jancsi híres volt az igazmondásáról. ", blanks: [6] },
+	{ text: "A történet végén a fiú szíve tele volt a tavaszi világgal. ", blanks: [11] },
+	    ],
+    options: [
+        ["igaz", "hamis"],
+	["igaz", "hamis"],
+	["igaz", "hamis"],
+	["igaz", "hamis"],
+	["igaz", "hamis"],
+	        
+    ],
+    correct: [0,1,1,1,0],
+    points: 5,
+    leftText: "<h2>A tölgyfa</h2><p>A tölgyfa<br>részlet<br>Csodálatos hely volt az öreg tölgyfa környéke. Télen titokzatos nyomok vezettek el alatta, tavasszal ott nyílt ki az első ibolya, nyáron édes, illatos meleg hentergett a vízmosásban, és ősszel a tölgy töredezett csonkjain pihentek meg az előkelő vándorok – sasok és sólymok – átutazóban. Szerettem az öreg fát, s néha – ha egyedül voltam vele – megsimogattam. Átfogni öt ember is alig tudta volna. Csak Berta Jancsi mondta, hogy ő egyszer megmászta, amire nem is válaszoltunk, mert Jancsi hazudós volt.<br>Télen, amikor a szél vonítva hordta a havat az utakon, és a falut hófúvások ágyazták körül, sokszor álmodtam a tölgyfával. Elképzeltem, hogy recsegve viaskodik a széllel. Meg-megrázva fejét, mint egy bozontos óriás, és mindig győztes marad, mert nélküle üres lett volna a réti világ. És kihez mentem volna én tavasszal első tavaszi látogatásra? Amikor a rengő levegő melegen nyalja a zsendülő füvet és a fa alatt kinyitotta már csillagszemét az ibolya. Ilyenkor hátam durva kérgének támasztottam. Jó volt egyedül lenni az óriással, aki végeredményben – a barátom volt.<br>Egyik tavaszon aztán furcsa dolog történt. Már messziről láttam, hogy valaki ott van a fám alatt. Ott ül a helyemen, ide hajol, oda hajol – szedi az ibolyámat.<br>– Na, megállj!<br>Lány volt az illető, hiszen piros réklije szemtelenül világított a tavasz lágy színei között. […]<br>– Mit csinálsz itt?<br>A kislány rám nézett.<br>– Nem látod?<br>– Ez a mi fánk – dobbantottam –, s ami alatta van, az is a miénk!<br>– A virág is?<br>– Minden. Kösd össze azt az ibolyát, és add ide!<br>Ilona – akivel mellesleg egy osztályba jártam – szelíden megingatta kis kontyát.<br>– Nem adom.<br>Elkaptam csuklóját – olyan vékony volt, mint a veréb lába –, jól megszorítottam. A maszatos kis tenyér kinyílt, a kék virágok lehullottak a földre.<br>Ilona meg se mozdult, csak lehajtotta a fejét. Arcát tenyerébe borította, és pihés tarkóján ragyogni kezdett a tavaszi nap. A világ elködösödött előttem, s a szívemben ősz lett egyszerre.<br>Az öreg tölgy ágai közt sziszegni kezdtek a tavalyi száraz levelek, mohás, szép oldalán valami ronda, nagy hernyó mászott. Mögöttem elhallgatott a réti pacsirtaszó, s előttem sírt az a kis piros rékli, hangtalanul, mint maga a bánat.<br>Még fogtam a kezét, de ez a fogás olyan volt már, mint a bársony.<br>– Ne sírj! – dadogtam –, hiszen csak tréfáltam. Vidd el a virágokat… Majd összeszedem…<br>– Nem kell – suttogta –, és most elmegyek.<br>Felállt, lesimította a kötényét, és könnyben úszó szemével a földet nézte.<br>– Elmegyek – mondta, de nem indult el.<br>– Mondtam, hogy tréfáltam. Legalább addig várj, amíg összeszedem az ibolyáidat. Van szép madzagom is – piros! –, azzal kötjük meg.<br>Köténye sarkát sodorgatta.<br>Vállára tettem a kezem, és kicsit elmosolyodtunk.<br>– Itt a madzag, de üljünk le már…<br>Ilona kötözte a kis csokrot. A vén tölgy koronája zsongott, mint a távoli muzsikaszó, s a szívemben benne volt az egész tavaszi világ.<br>Aztán csak ültünk. A kislány játszadozott a csokorral, aztán félénken a kezembe tette.<br>– Neked adom… <br><br>Fekete István</p>",
+    },
+
+
+];
+
+let currentQuestion = 0;
+
+function initQuiz(){ 
+    buildNavigator(); 
+    buildQuestions(); 
+    showQuestion(0); 
+    // Kezdeti színezés beállítása
+    for(let i=0; i<quizData.length; i++) {
+        updateStatus(i);
+    }
+    document.getElementById("restartBtn").addEventListener("click", () => location.reload());
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const span=document.createElement("span"); 
+        span.className="qn"; 
+        span.id=`nav-${i}`;
+        span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.2rem; margin-bottom: 20px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    if(q.type === "dropdown-multiple-sentences"){
+        let optIndex = 0;
+        q.sentences.forEach(sentence => {
+            const line = document.createElement("div");
+            line.className = "dropdown-sentence";
+            const words = sentence.text.split(" ");
+            words.forEach((word, wi) => {
+                if(sentence.blanks && sentence.blanks.includes(wi)){
+                    const select = document.createElement("select");
+                    select.dataset.optIndex = optIndex;
+                    select.innerHTML = "<option value=''>...</option>";
+                    q.options[optIndex].forEach((opt, oi) => {
+                        const optionElem = document.createElement("option");
+                        optionElem.value = oi;
+                        optionElem.textContent = opt;
+                        select.appendChild(optionElem);
+                    });
+                    select.addEventListener('change', () => updateStatus(i));
+                    line.appendChild(select);
+                    line.appendChild(document.createTextNode(" "));
+                    optIndex++;
+                } else {
+                    line.appendChild(document.createTextNode(word + " "));
+                }
+            });
+            wrap.appendChild(line);
+        });
+    } else if(q.type==="single" || q.type==="multi"){
+        const inputType = q.type === "single" ? "radio" : "checkbox";
+        q.options.forEach((opt,j)=>{
+            const label=document.createElement("label");
+            label.innerHTML=`<input type="${inputType}" name="q${i}" value="${j}"> ${opt}`;
+            label.querySelector("input").addEventListener('change', () => updateStatus(i));
+            wrap.appendChild(label);
+        });
+    }
+    return wrap;
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); 
+    prev.className="btn-prev";
+    prev.textContent="← Előző"; 
+    prev.onclick=()=>showQuestion(i-1); 
+    if(i===0) prev.style.visibility="hidden";
+    
+    const next=document.createElement("button"); 
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Kvíz befejezése" : "Következő →"; 
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function showQuestion(n){
+    currentQuestion=n;
+    document.querySelectorAll(".question").forEach(d=>d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    updateLeftPanel(n);
+    
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function updateLeftPanel(i){
+    const q = quizData[i];
+    const left = document.getElementById("left-panel");
+    left.innerHTML = `<h2>4. osztály</h2>`;
+
+    if(q.leftText){
+        const div = document.createElement("div");
+        div.style.lineHeight = "1.6";
+        div.innerHTML = q.leftText;
+        left.appendChild(div);
+    }
+
+    if(q.leftImage){
+        const img = document.createElement("img");
+        img.src = q.leftImage;
+        img.alt = "Ábra";
+        img.onclick=()=>{ 
+            const overlay = document.getElementById("image-overlay");
+            const overlayImg = document.getElementById("overlay-img");
+            overlayImg.src=img.src; 
+            overlay.style.display="flex"; 
+            setTimeout(() => overlayImg.style.transform = "scale(1)", 10);
+        };
+        left.appendChild(img);
+    }
+}
+
+/**
+ * A navigációs körök színezése a feladat státusza szerint (Piros/Sárga/Zöld)
+ */
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    if(!btn) return;
+    const q = quizData[i];
+    const wrap = document.getElementById(`q${i}`);
+    if(!wrap) return;
+
+    if(q.type === "dropdown-multiple-sentences"){
+        const selects = wrap.querySelectorAll("select");
+        let filled = 0;
+        selects.forEach(s => { if(s.value !== "") filled++; });
+        
+        if(filled === 0) btn.style.backgroundColor = "var(--danger)";
+        else if(filled < selects.length) btn.style.backgroundColor = "var(--warning)";
+        else btn.style.backgroundColor = "var(--success)";
+    } else if(q.type === "single"){
+        const checked = wrap.querySelector("input:checked");
+        btn.style.backgroundColor = checked ? "var(--success)" : "var(--danger)";
+    } else if(q.type === "multi"){
+        const checkedCount = wrap.querySelectorAll("input:checked").length;
+        const requiredCount = q.correct.length; // Elvárt helyes válaszok száma
+        
+        if(checkedCount === 0) {
+            btn.style.backgroundColor = "var(--danger)";
+        } else if(checkedCount < requiredCount) {
+            // Ha van jelölés, de kevesebb, mint amennyi helyes válasz létezik
+            btn.style.backgroundColor = "var(--warning)";
+        } else {
+            // Ha elérte vagy meghaladta az elvárt számot (teljesen kitöltöttnek tekintjük)
+            btn.style.backgroundColor = "var(--success)";
+        }
+    }
+}
+
+function finishQuiz(){
+    let totalScore=0;
+    let maxScore=0;
+    let feedback = "";
+
+    quizData.forEach((q,i)=>{
+        let questionScore=0;
+        let qMax = (q.points || 1);
+        maxScore += qMax;
+        const wrap=document.getElementById(`q${i}`);
+
+        if(q.type==="dropdown-multiple-sentences"){
+            const selects=[...wrap.querySelectorAll("select")];
+            selects.forEach(s=>{
+                const idx=Number(s.dataset.optIndex);
+                if(s.value !== "" && Number(s.value) === q.correct[idx]) questionScore++;
+            });
+        } else if(q.type==="single"){
+            const sel=wrap.querySelector("input:checked");
+            if(sel && Number(sel.value) === q.correct[0]) questionScore=1;
+        } else if(q.type==="multi"){
+            const sel = [...wrap.querySelectorAll(`input:checked`)].map(x=>Number(x.value));
+            const correctSelected = sel.filter(v=>q.correct.includes(v)).length;
+            const incorrectSelected = sel.filter(v=>!q.correct.includes(v)).length;
+            questionScore = correctSelected - incorrectSelected;
+            if(questionScore < 0) questionScore = 0;
+        }
+
+        totalScore += questionScore;
+        feedback += `<div style="padding:12px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+            <span><strong>${i+1}. kérdés:</strong> ${questionScore === qMax ? '✅' : questionScore > 0 ? '⚠️' : '❌'}</span>
+            <span style="font-weight:600;">${questionScore} / ${qMax} pont</span>
+        </div>`;
+    });
+
+    const percent = Math.round((totalScore / maxScore) * 100);
+    let color = percent > 80 ? "var(--success)" : percent > 50 ? "var(--warning)" : "var(--danger)";
+
+    document.getElementById("resultText").innerHTML= `
+        <div style="text-align:center; margin-bottom:30px; padding: 20px; border-radius: 12px; background: #f8fafc;">
+            <div style="font-size: 3.5rem; color: ${color}; font-weight:bold;">${percent}%</div>
+            <div style="font-size: 1.4rem; color: #64748b;">Összpontszám: ${totalScore} / ${maxScore}</div>
+        </div>
+        <div style="background:#ffffff; border: 1px solid #e5e7eb; border-radius:12px; overflow: hidden;">
+            <div style="padding:12px; background:#f1f5f9; font-weight:bold; border-bottom:1px solid #e5e7eb;">Részletes eredmények:</div>
+            ${feedback}
+        </div>
+    `;
+
+    document.getElementById("quiz-container").style.display="none";
+    document.getElementById("resultPage").style.display="block";
+    window.scrollTo(0,0);
+}
+
+function closeOverlay() {
+    const overlay = document.getElementById("image-overlay");
+    const overlayImg = document.getElementById("overlay-img");
+    overlayImg.style.transform = "scale(0.7)";
+    setTimeout(() => overlay.style.display="none", 200);
+}
+
+window.onload = initQuiz;
+</script>
+</body>
+</html>

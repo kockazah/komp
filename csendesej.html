@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Szövegértés feladatok</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background-color: var(--bg-color); color: var(--text-color); }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+    }
+    
+    #quiz-container .left { 
+        width:40%; border-right:2px solid var(--border-color); 
+        padding: 30px; overflow-y:auto; background-color: #fafafa;
+    }
+    
+    #quiz-container .right { 
+        width:60%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden;
+    }
+    
+    .quiz-header { 
+        padding-bottom:15px; border-bottom:1px solid var(--border-color); 
+        margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; 
+    }
+    
+    .quiz-questions { overflow-y:auto; flex-grow:1; padding-right: 10px; }
+    
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { 
+        width:32px; height:32px; line-height:32px; text-align:center; 
+        border-radius:50%; background-color: var(--danger); color:white; 
+        font-weight: bold; cursor:pointer; transition: 0.2s;
+    }
+    
+    .question { display:none; animation: fadeIn 0.3s; }
+    .question.active { display:block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:30px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    
+    button { 
+        padding:12px 24px; border-radius: 8px; border: none; 
+        font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-prev { background-color: #9ca3af; color: white; }
+    
+    #resultPage { display:none; padding:60px; text-align:center; max-width: 800px; margin: 50px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    #left-panel h2 { color: var(--primary); margin-top: 0; }
+    #left-panel img { 
+        width: 100%; max-height: auto; object-fit: contain; 
+        display:block; margin: 20px 0; border-radius: 8px;
+        cursor:zoom-in; border: 1px solid var(--border-color);
+    }
+    
+    label { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    label:hover { background-color: #f8fafc; border-color: var(--primary); }
+    input { margin-right: 12px; width: 18px; height: 18px; cursor: pointer; }
+    select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 1rem; background-color: white; }
+
+    #image-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; }
+    #overlay-img { max-width: 100%; max-height: 90%; border-radius: 8px; cursor: zoom-out; transition: transform 0.3s ease; }
+
+    .dropdown-sentence { margin-bottom: 18px; line-height: 1.8; font-size: 1.1rem; }
+
+    @media (max-width:768px) { 
+        #quiz-container { flex-direction:column; height: auto; margin: 0; border-radius: 0; } 
+        #quiz-container .left, #quiz-container .right { width:100%; height: auto; border-right:none; } 
+    }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>4. osztály</h2>
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <h2 style="margin:0;">Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultHeader">Eredmény</h1>
+  <div id="resultText" style="font-size: 1.1rem; line-height: 1.6; margin: 20px 0; text-align: left;"></div>
+  <button id="restartBtn" class="btn-next">Újrakezdés</button>
+</div>
+
+<div id="image-overlay" onclick="closeOverlay()">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+const quizData = [
+    {
+        question: "1. Mi NEM derül ki a történet bevezető szakaszából?",
+        type: "multi",
+        options: ["A szereplő egy gazdag ember.","Vele utazott a szolgája is.","Lóháton indultak el.","A gazdag ember Istent kereste.","Sok pénzt költött az útja során.","Csak a szomszéd országig jutott.","Nem volt a szívében szeretet.","Nem találta meg Istent."],
+        correct: [1,2,5],
+        points: 3,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+
+
+{
+    question: "<p>2. Válaszd ki a legördülő menüből a helyes választ!</p>",
+    type: "dropdown-multiple-sentences",
+    sentences: [
+        { text: "Mikor érkezett haza a gazdag ember az útjáról?  ", blanks: [8] },
+        { text: "Milyen hangulatban érkezett meg? ", blanks: [4] },
+	{ text: "Kivel találkozott a háza előtt? ", blanks: [5] },
+	{ text: "Hogyan szólította meg a kisfiút? ", blanks: [5] },
+	{ text: "Milyen tekintettel nézett vissza a kisfiú? ", blanks: [6] },
+],
+    options: [
+        ["épp karácsony este", "húsvét hajnalán","szilveszter éjjel"],
+	["vidáman", "dühösen", "fáradtan", "szomorúan", "haragosan"],
+	["a szolgájával", "egy szegény kisfiúval", "egy gazdag gyerekkel", "a szerelmével"],
+	["kíváncsian érdeklődött", "szelíden szólt", "türelmetlenül rámordult"],
+	["meleg barna szemekkel", "szúrós tekintettel", "könnyekkel teli szemmel"],        
+    ],
+    correct: [0,3,1,2,0],
+    points: 5,
+    leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>",
+    },
+
+{
+    question: "3. Ki mondta?<br> Válaszd ki a legördülő menüből a helyes választ!",
+    type: "dropdown-multiple-sentences",
+    sentences: [
+        { text: "– Menj az utamból! ", blanks: [4] },
+        { text: "– Mit keresel itt?! ", blanks: [4] },
+	{ text: "– Hát… csak a karácsonyfát néztem az ablakon át… ", blanks: [9] },
+	{ text: "– Olyan szép… ", blanks: [3] },
+	{ text: "– Eredj innen! ", blanks: [3] },
+	{ text: "– Útban vagy, nem látod?! ", blanks: [5] },
+],
+    options: [
+        ["gazdag ember", "szegény kisfiú"],
+	 ["gazdag ember", "szegény kisfiú"],
+	 ["gazdag ember", "szegény kisfiú"],
+	 ["gazdag ember", "szegény kisfiú"],
+	 ["gazdag ember", "szegény kisfiú"],
+	 ["gazdag ember", "szegény kisfiú"],      
+    ],
+    correct: [0,0,1,1,0,0],
+    points: 6,
+    leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>",
+    },
+
+{
+        question: "4. Miért indult útnak a gazdag ember a történet elején?",
+        type: "single",
+        options: ["El akarta költeni a felesleges vagyonát.","Meg akarta találni Istent.","Világkörüli utazásra vágyott a családjával.","Új kereskedelmi útvonalakat keresett."],
+        correct: [1],
+        points: 1,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+{
+        question: "5. Mi volt az oka annak, hogy az útja során nem találta meg, amit keresett?",
+        type: "single",
+        options: ["Mert túl rövid ideig utazott.","Mert nem volt a szívében szeretet.","Mert rossz irányba indult el a Föld körül.","Mert elfogyott a pénze az út végére."],
+        correct: [1],
+        points: 1,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+{
+        question: "6. Hogyan érkezett haza a gazdag ember?",
+        type: "single",
+        options: ["Mérgesen, mert ellopták a vagyonát.","Szomorúan és lehajtott fejjel ballagva.","Vidáman és büszkén a sikeres út miatt.","Sietve, hogy ne késse le a vacsorát."],
+        correct: [1],
+        points: 1,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+{
+        question: "7. Ki várt a gazdag ember díszes kapujában?",
+        type: "single",
+        options: ["Egy szegény kisfiú.","Egy öreg koldus.","A főkomornyik.","A saját gyermeke."],
+        correct: [0],
+        points: 1,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+{
+        question: "8. Mit csinált a kisfiú, mielőtt az uraság rákiáltott?",
+        type: "single",
+        options: ["El akart bújni a gazdag ember elől.","Kéregetett a járókelőktől.","A karácsonyfát nézte az ablakon át.","Hógolyózott a kapu előtt."],
+        correct: [2],
+        points: 1,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+{
+        question: "9. Melyik állítás igaz a gazdag ember változására?",
+        type: "single",
+        options: ["Megharagudott a komornyikra a rendetlenség miatt.","Megbánta durvaságát, és visszahívta a gyereket.","Megijedt a gyerektől és bemenekült a házba.","Rájött, hogy elveszítette a házkulcsát."],
+        correct: [1],
+        points: 1,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+{
+        question: "10. Mit kért az uraság a szakácstól a történet végén?",
+        type: "single",
+        options: ["Hogy készítsen útravalót a kisfiúnak.","Hogy csak a kisfiúnak főzzön.","Hogy ezentúl minden nap spóroljon az étellel.","Hogy semmivel ne spóroljon a vacsoránál."],
+        correct: [3],
+        points: 1,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+{
+        question: "11. Kiket hívatott még át az uraság a szomszédból?",
+        type: "single",
+        options: ["A többi gazdag kereskedőt.","A szegényeket.","A rokonait.","A katonákat."],
+        correct: [1],
+        points: 1,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+{
+        question: "12. Milyen különleges dolog történt a vacsora alatt?",
+        type: "single",
+        options: ["Kigyulladt a karácsonyfa.","A gazdag ember újra elindult Föld körüli útra.","A szolgák is együtt étkezhettek a gazdájukkal.","A kisfiú elszaladt az étellel."],
+        correct: [2],
+        points: 1,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+{
+        question: "13. Mit értett meg a gazdag ember a történet végére?",
+        type: "single",
+        options: ["Hogy az utazás volt élete legjobb befektetése.","Hogy a boldogsághoz nyitott szemmel és szívvel kell élni.","Hogy Isten csak a távoli országokban található meg.","Hogy a karácsonyfa fényei túl drágák."],
+        correct: [1],
+        points: 1,
+        leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>"
+    },
+
+
+{
+    question: "<p>14. Hogyan változtak a gazdag ember érzései? Egészítsd ki a hiányos mondatokat!</p>",
+    type: "dropdown-multiple-sentences",
+    sentences: [
+        { text: "De amint ezt kimondta – talán  –   , amit tett.  ", blanks: [6,9] },
+        { text: "Megállt,  ", blanks: [1] },
+	{ text: "Maga sem tudta, mi  .", blanks: [4] },
+	{ text: "Mintha valami  volna a   . ", blanks: [2,5] },
+	{ text: "Most  önmagát és a  .", blanks: [1,6] },
+],
+    options: [
+        ["aznap először", "életében először","most az egyszer","hirtelen"],
+	["elfelejtette", "megbánta", "letagadta", "kinevette"],
+	["elgondolkodott", "leült", "visszafordult", "felsóhajtott"],
+	["fog történni", "történik vele", "romlott el","baj van"],
+	["megijesztette", "megérintette", "elszomorította","felemelte"], 
+	["szívét", "gondolatait", "lelkét","vállát"], 
+	["büszkén látta", "másképp látta", "nem ismerte","jobban szerette"],
+	["gyermeket", "házat", "sorsát","komornyikot"],      
+    ],
+    correct: [1,1,2,1,1,2,1,0],
+    points: 8,
+    leftText: "<h2>Csendes éj</h2><p><br>Egyszer egy gazdag ember nagy útra indult, mert meg akarta találni Istent. Nagy vagyont költött a hosszú útra, körbeutazta az egész Földet, de mivel sohasem volt szívében szeretet, nem találta meg Istent.<br><br><br>Szomorúan érkezett vissza. Épp karácsony estéje volt. Lehajtott fejjel ballagott hazafelé, lépteinek zaját felfogta a friss hó. Pompás háza díszes kapujában egy szegény kisfiú üldögélt kopott, kinőtt kabátban. A gazdag ember türelmetlenül rámordult.<br>– Menj az utamból! Mit keresel itt?!<br>– Hát… csak a karácsonyfát néztem az ablakon át… Olyan szép… – hangzott a félénk válasz, és meleg barna szemek néztek fel a fakó kucsma alól.<br>– Eredj innen! Útban vagy, nem látod?!– förmedt rá az uraság a megszeppent gyerekre.<br>De amint ezt kimondta – talán életében először –, megbánta, amit tett. Megállt, visszafordult. Maga sem tudta, mi történik vele.<br>Mintha valami megérintette volna a lelkét. Most másképp látta önmagát és a gyermeket, akit ismert az utcáról.<br>– Állj meg! Gyere vissza! – szólt zavartan a gyermek után. Lehajolt hozzá, a szemébe nézett, megsimogatta a fejét. Érezte, hogy selymes a haja és hideg a homloka. Ujjai reszketni kezdtek, eddig nem tapasztalt érzés töltötte el. Aztán leguggolt a gyerekhez:<br>– Gyere be hozzám… – mondta lassan, szinte csodálkozva saját szavain. – Én is nagyon megéheztem… Szólok a szakácsomnak, hogy ma a te kedvenc ételedet készítse el nekünk. – Majd felbátorodva így folytatta: – Ne félj tőlem többé! Ellátlak étellel, ruhával, jut belőle a testvéreidnek, szomszédaidnak is! Bármikor eljöhetsz hozzám ezentúl, és nem fogsz éhezni soha!<br>A házba lépve a főkomornyik igen elcsodálkozott ura boldogságtól sugárzó arcán, s mellette a rongyos, szegény gyermeken, aki a kezét fogta.<br>Gyanakodva csak ennyit kérdezett:<br>– Jól van… uram? – és összeráncolta homlokát.<br>– Soha életemben nem voltam még ilyen jól! – hangzott a gazdag ember vidám válasza.<br>– Készíttess gyorsan fürdővizet és vacsorát, őneki is – nézett boldogan a kisfiúra, tekintetük egymásra talált –, mert nagyon éhesek vagyunk!<br>– Sikeres volt az útja, uram? Megtalálta Istent? – érdeklődött aggódva az öreg szolga, gazdája tekintetét kémlelve.<br>– Az egész utam fölösleges pénzkidobás volt, barátom! – hangzott a válasz.<br>– Csak itthon kellett volna körülnéznem, és észrevennem a tennivalókat. Csak nyitott szemmel és szívvel kellett volna élnem, úgy, ahogyan eddig sohase tettem! Fölösleges volt az utam, mégis megtaláltam Istent! Itthon, a házam előtt… – Aztán az értetlenül álló inas vállára tette jobb kezét, és így szólt:<br>– Menj, hívd át a szomszédból a szegényeket! És szólj a szakácsnak, hogy semmivel ne spóroljon!<br>Sokáig vacsoráztak, beszélgettek, s életükben először a szolgák is együtt étkezhettek gazdájukkal. És attól kezdve megváltozott minden. A karácsonyfa gyertyáinak fénye betöltötte a szobát; szebben ragyogott, mint valaha.<br>– Ez eddigi legszebb karácsonyom, mert most kaptam a legnagyobb ajándékot! – mondta boldogan a gazdag ember.<br>Mialatt körülállták a karácsonyfát, odakint újra hullani kezdett a hó. Csendes éj ölelte át a házat, amelynek ablakaiból fény és szeretet sugárzott.<br><br>Nagyváradi János</p>",
+    },
+
+
+
+];
+
+let currentQuestion = 0;
+
+function initQuiz(){ 
+    buildNavigator(); 
+    buildQuestions(); 
+    showQuestion(0); 
+    // Kezdeti színezés beállítása
+    for(let i=0; i<quizData.length; i++) {
+        updateStatus(i);
+    }
+    document.getElementById("restartBtn").addEventListener("click", () => location.reload());
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const span=document.createElement("span"); 
+        span.className="qn"; 
+        span.id=`nav-${i}`;
+        span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.2rem; margin-bottom: 20px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    if(q.type === "dropdown-multiple-sentences"){
+        let optIndex = 0;
+        q.sentences.forEach(sentence => {
+            const line = document.createElement("div");
+            line.className = "dropdown-sentence";
+            const words = sentence.text.split(" ");
+            words.forEach((word, wi) => {
+                if(sentence.blanks && sentence.blanks.includes(wi)){
+                    const select = document.createElement("select");
+                    select.dataset.optIndex = optIndex;
+                    select.innerHTML = "<option value=''>...</option>";
+                    q.options[optIndex].forEach((opt, oi) => {
+                        const optionElem = document.createElement("option");
+                        optionElem.value = oi;
+                        optionElem.textContent = opt;
+                        select.appendChild(optionElem);
+                    });
+                    select.addEventListener('change', () => updateStatus(i));
+                    line.appendChild(select);
+                    line.appendChild(document.createTextNode(" "));
+                    optIndex++;
+                } else {
+                    line.appendChild(document.createTextNode(word + " "));
+                }
+            });
+            wrap.appendChild(line);
+        });
+    } else if(q.type==="single" || q.type==="multi"){
+        const inputType = q.type === "single" ? "radio" : "checkbox";
+        q.options.forEach((opt,j)=>{
+            const label=document.createElement("label");
+            label.innerHTML=`<input type="${inputType}" name="q${i}" value="${j}"> ${opt}`;
+            label.querySelector("input").addEventListener('change', () => updateStatus(i));
+            wrap.appendChild(label);
+        });
+    }
+    return wrap;
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); 
+    prev.className="btn-prev";
+    prev.textContent="← Előző"; 
+    prev.onclick=()=>showQuestion(i-1); 
+    if(i===0) prev.style.visibility="hidden";
+    
+    const next=document.createElement("button"); 
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Kvíz befejezése" : "Következő →"; 
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function showQuestion(n){
+    currentQuestion=n;
+    document.querySelectorAll(".question").forEach(d=>d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    updateLeftPanel(n);
+    
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function updateLeftPanel(i){
+    const q = quizData[i];
+    const left = document.getElementById("left-panel");
+    left.innerHTML = `<h2>4. osztály</h2>`;
+
+    if(q.leftText){
+        const div = document.createElement("div");
+        div.style.lineHeight = "1.6";
+        div.innerHTML = q.leftText;
+        left.appendChild(div);
+    }
+
+    if(q.leftImage){
+        const img = document.createElement("img");
+        img.src = q.leftImage;
+        img.alt = "Ábra";
+        img.onclick=()=>{ 
+            const overlay = document.getElementById("image-overlay");
+            const overlayImg = document.getElementById("overlay-img");
+            overlayImg.src=img.src; 
+            overlay.style.display="flex"; 
+            setTimeout(() => overlayImg.style.transform = "scale(1)", 10);
+        };
+        left.appendChild(img);
+    }
+}
+
+/**
+ * A navigációs körök színezése a feladat státusza szerint (Piros/Sárga/Zöld)
+ */
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    if(!btn) return;
+    const q = quizData[i];
+    const wrap = document.getElementById(`q${i}`);
+    if(!wrap) return;
+
+    if(q.type === "dropdown-multiple-sentences"){
+        const selects = wrap.querySelectorAll("select");
+        let filled = 0;
+        selects.forEach(s => { if(s.value !== "") filled++; });
+        
+        if(filled === 0) btn.style.backgroundColor = "var(--danger)";
+        else if(filled < selects.length) btn.style.backgroundColor = "var(--warning)";
+        else btn.style.backgroundColor = "var(--success)";
+    } else if(q.type === "single"){
+        const checked = wrap.querySelector("input:checked");
+        btn.style.backgroundColor = checked ? "var(--success)" : "var(--danger)";
+    } else if(q.type === "multi"){
+        const checkedCount = wrap.querySelectorAll("input:checked").length;
+        const requiredCount = q.correct.length; // Elvárt helyes válaszok száma
+        
+        if(checkedCount === 0) {
+            btn.style.backgroundColor = "var(--danger)";
+        } else if(checkedCount < requiredCount) {
+            // Ha van jelölés, de kevesebb, mint amennyi helyes válasz létezik
+            btn.style.backgroundColor = "var(--warning)";
+        } else {
+            // Ha elérte vagy meghaladta az elvárt számot (teljesen kitöltöttnek tekintjük)
+            btn.style.backgroundColor = "var(--success)";
+        }
+    }
+}
+
+function finishQuiz(){
+    let totalScore=0;
+    let maxScore=0;
+    let feedback = "";
+
+    quizData.forEach((q,i)=>{
+        let questionScore=0;
+        let qMax = (q.points || 1);
+        maxScore += qMax;
+        const wrap=document.getElementById(`q${i}`);
+
+        if(q.type==="dropdown-multiple-sentences"){
+            const selects=[...wrap.querySelectorAll("select")];
+            selects.forEach(s=>{
+                const idx=Number(s.dataset.optIndex);
+                if(s.value !== "" && Number(s.value) === q.correct[idx]) questionScore++;
+            });
+        } else if(q.type==="single"){
+            const sel=wrap.querySelector("input:checked");
+            if(sel && Number(sel.value) === q.correct[0]) questionScore=1;
+        } else if(q.type==="multi"){
+            const sel = [...wrap.querySelectorAll(`input:checked`)].map(x=>Number(x.value));
+            const correctSelected = sel.filter(v=>q.correct.includes(v)).length;
+            const incorrectSelected = sel.filter(v=>!q.correct.includes(v)).length;
+            questionScore = correctSelected - incorrectSelected;
+            if(questionScore < 0) questionScore = 0;
+        }
+
+        totalScore += questionScore;
+        feedback += `<div style="padding:12px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+            <span><strong>${i+1}. kérdés:</strong> ${questionScore === qMax ? '✅' : questionScore > 0 ? '⚠️' : '❌'}</span>
+            <span style="font-weight:600;">${questionScore} / ${qMax} pont</span>
+        </div>`;
+    });
+
+    const percent = Math.round((totalScore / maxScore) * 100);
+    let color = percent > 80 ? "var(--success)" : percent > 50 ? "var(--warning)" : "var(--danger)";
+
+    document.getElementById("resultText").innerHTML= `
+        <div style="text-align:center; margin-bottom:30px; padding: 20px; border-radius: 12px; background: #f8fafc;">
+            <div style="font-size: 3.5rem; color: ${color}; font-weight:bold;">${percent}%</div>
+            <div style="font-size: 1.4rem; color: #64748b;">Összpontszám: ${totalScore} / ${maxScore}</div>
+        </div>
+        <div style="background:#ffffff; border: 1px solid #e5e7eb; border-radius:12px; overflow: hidden;">
+            <div style="padding:12px; background:#f1f5f9; font-weight:bold; border-bottom:1px solid #e5e7eb;">Részletes eredmények:</div>
+            ${feedback}
+        </div>
+    `;
+
+    document.getElementById("quiz-container").style.display="none";
+    document.getElementById("resultPage").style.display="block";
+    window.scrollTo(0,0);
+}
+
+function closeOverlay() {
+    const overlay = document.getElementById("image-overlay");
+    const overlayImg = document.getElementById("overlay-img");
+    overlayImg.style.transform = "scale(0.7)";
+    setTimeout(() => overlay.style.display="none", 200);
+}
+
+window.onload = initQuiz;
+</script>
+</body>
+</html>
