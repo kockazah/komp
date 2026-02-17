@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Szövegértés feladatok</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background-color: var(--bg-color); color: var(--text-color); }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+    }
+    
+    #quiz-container .left { 
+        width:40%; border-right:2px solid var(--border-color); 
+        padding: 30px; overflow-y:auto; background-color: #fafafa;
+    }
+    
+    #quiz-container .right { 
+        width:60%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden;
+    }
+    
+    .quiz-header { 
+        padding-bottom:15px; border-bottom:1px solid var(--border-color); 
+        margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; 
+    }
+    
+    .quiz-questions { overflow-y:auto; flex-grow:1; padding-right: 10px; }
+    
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { 
+        width:32px; height:32px; line-height:32px; text-align:center; 
+        border-radius:50%; background-color: var(--danger); color:white; 
+        font-weight: bold; cursor:pointer; transition: 0.2s;
+    }
+    
+    .question { display:none; animation: fadeIn 0.3s; }
+    .question.active { display:block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:30px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    
+    button { 
+        padding:12px 24px; border-radius: 8px; border: none; 
+        font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-prev { background-color: #9ca3af; color: white; }
+    
+    #resultPage { display:none; padding:60px; text-align:center; max-width: 800px; margin: 50px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    #left-panel h2 { color: var(--primary); margin-top: 0; }
+    #left-panel img { 
+        width: 100%; max-height: auto; object-fit: contain; 
+        display:block; margin: 20px 0; border-radius: 8px;
+        cursor:zoom-in; border: 1px solid var(--border-color);
+    }
+    
+    label { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    label:hover { background-color: #f8fafc; border-color: var(--primary); }
+    input { margin-right: 12px; width: 18px; height: 18px; cursor: pointer; }
+    select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 1rem; background-color: white; }
+
+    #image-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; }
+    #overlay-img { max-width: 100%; max-height: 90%; border-radius: 8px; cursor: zoom-out; transition: transform 0.3s ease; }
+
+    .dropdown-sentence { margin-bottom: 18px; line-height: 1.8; font-size: 1.1rem; }
+
+    @media (max-width:768px) { 
+        #quiz-container { flex-direction:column; height: auto; margin: 0; border-radius: 0; } 
+        #quiz-container .left, #quiz-container .right { width:100%; height: auto; border-right:none; } 
+    }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>4. osztály</h2>
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <h2 style="margin:0;">Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultHeader">Eredmény</h1>
+  <div id="resultText" style="font-size: 1.1rem; line-height: 1.6; margin: 20px 0; text-align: left;"></div>
+  <button id="restartBtn" class="btn-next">Újrakezdés</button>
+</div>
+
+<div id="image-overlay" onclick="closeOverlay()">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+const quizData = [
+    {
+      question: "1. Mennyi a 4567 és a 3433 összege?",
+      type: "single",
+      options: ["7000", "8100", "7900", "8000"],
+      correct: [3],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "2. Egy téglalap oldalai a=12 cm és b=5 cm. Mekkora a területe?",
+      type: "single",
+      options: ["34 cm", "30 cm&sup2", "17 cm&sup2", "60 cm&sup2"],
+      correct: [3],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "3. Melyik szám teszi igazzá a nyitott mondatot? 6500 - ... > 6000",
+      type: "single",
+      options: ["499", "500", "501", "600"],
+      correct: [0],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "4. Melyik a következő szám a sorozatban? 1200, 2400, 3600, ...",
+      type: "single",
+      options: ["4800", "4000", "4600", "5000"],
+      correct: [0],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "5. Egy négyzet kerülete 36 cm. Mennyi a területe?",
+      type: "single",
+      options: ["36 cm&sup2", "81 cm&sup2", "9 cm&sup2", "144 cm&sup2"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "6. Írásbeli szorzás: 1234·3=",
+      type: "single",
+      options: ["4702", "3702", "3602", "3692"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "7. Gondoltam egy számra. Ha elveszek belőle 1500-at, 3200-at kapok. Mi volt a gondolt szám?",
+      type: "single",
+      options: ["4700", "4500", "1700", "3700"],
+      correct: [0],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "8. Melyik számban van 7 ezres, 2 százas és 5 tízes?",
+      type: "single",
+      options: ["7205", "7025", "7520", "7250"],
+      correct: [3],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "9. Panni 2800 Ft-ért vett könyvet, és 3-szor ennyiért táskát. Mennyibe került a táska?",
+      type: "single",
+      options: ["7400", "8400", "5600", "6400"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "10. Hány méter a kerülete egy olyan kertnek, aminek oldalai 25 m és 15 m?",
+      type: "single",
+      options: ["375 m", "40 m", "70 m", "80 m"],
+      correct: [3],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "11. Mennyi a 2345·4 írásbeli szorzás eredménye?",
+      type: "single",
+      options: ["8380", "9380", "8360", "9360"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "12. Egy négyzet oldala a=7 cm. Mennyi a területe (T)?",
+      type: "single",
+      options: ["49 cm", "28 cm&sup2", "14 cm&sup2", "49 cm&sup2"],
+      correct: [3],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "13. Melyik szám hiányzik a nyitott mondatból? 8700 - ... = 5400",
+      type: "single",
+      options: ["4300", "3300", "2300", "3400"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "14. Végezd el az osztást: 4824:4=...",
+      type: "single",
+      options: ["1216", "126", "1260", "1206"],
+      correct: [3],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "15. Folytasd a sorozatot: 9800, 9650, 9500, ...",
+      type: "single",
+      options: ["9350", "9250", "9300", "9400"],
+      correct: [0],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "16. Egy téglalap alakú pálya kerülete 200 méter. Az egyik oldala 60 méter. Milyen hosszú a másik oldala?",
+      type: "single",
+      options: ["60 m", "140 m", "80 m", "40 m"],
+      correct: [3],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "17. Mennyi a 7345 százasokra kerekített értéke?",
+      type: "single",
+      options: ["7400", "7350", "7000", "7300"],
+      correct: [3],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "18. Hány gombóc fagylaltot vehetünk meg 4500 Ft-ból, ha egy gombóc 500 Ft-ba kerül?",
+      type: "single",
+      options: ["10", "7", "9", "8"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "19. Melyik állítás igaz a 6052 számra?",
+      type: "single",
+      options: ["Kisebb, mint 6100", "Nincs benne százas helyi érték", "Páratlan szám", "Nagyobb, mint 6500"],
+      correct: [0],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+{
+      question: "20. Egy téglalap területe 40 cm&sup2. Az egyik oldala 8 cm. Mennyi a kerülete?",
+      type: "single",
+      options: ["32 cm", "40 cm", "13 cm", "26 cm"],
+      correct: [3],
+      points: 1,
+      leftImage: "",
+      leftText: ""
+    },
+
+    ];
+    
+let currentQuestion = 0;
+
+function initQuiz(){ 
+    buildNavigator(); 
+    buildQuestions(); 
+    showQuestion(0); 
+    // Kezdeti színezés beállítása
+    for(let i=0; i<quizData.length; i++) {
+        updateStatus(i);
+    }
+    document.getElementById("restartBtn").addEventListener("click", () => location.reload());
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const span=document.createElement("span"); 
+        span.className="qn"; 
+        span.id=`nav-${i}`;
+        span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.2rem; margin-bottom: 20px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    if(q.type === "dropdown-multiple-sentences"){
+        let optIndex = 0;
+        q.sentences.forEach(sentence => {
+            const line = document.createElement("div");
+            line.className = "dropdown-sentence";
+            const words = sentence.text.split(" ");
+            words.forEach((word, wi) => {
+                if(sentence.blanks && sentence.blanks.includes(wi)){
+                    const select = document.createElement("select");
+                    select.dataset.optIndex = optIndex;
+                    select.innerHTML = "<option value=''>...</option>";
+                    q.options[optIndex].forEach((opt, oi) => {
+                        const optionElem = document.createElement("option");
+                        optionElem.value = oi;
+                        optionElem.textContent = opt;
+                        select.appendChild(optionElem);
+                    });
+                    select.addEventListener('change', () => updateStatus(i));
+                    line.appendChild(select);
+                    line.appendChild(document.createTextNode(" "));
+                    optIndex++;
+                } else {
+                    line.appendChild(document.createTextNode(word + " "));
+                }
+            });
+            wrap.appendChild(line);
+        });
+    } else if(q.type==="single" || q.type==="multi"){
+        const inputType = q.type === "single" ? "radio" : "checkbox";
+        q.options.forEach((opt,j)=>{
+            const label=document.createElement("label");
+            label.innerHTML=`<input type="${inputType}" name="q${i}" value="${j}"> ${opt}`;
+            label.querySelector("input").addEventListener('change', () => updateStatus(i));
+            wrap.appendChild(label);
+        });
+    }
+    return wrap;
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); 
+    prev.className="btn-prev";
+    prev.textContent="← Előző"; 
+    prev.onclick=()=>showQuestion(i-1); 
+    if(i===0) prev.style.visibility="hidden";
+    
+    const next=document.createElement("button"); 
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Kvíz befejezése" : "Következő →"; 
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function showQuestion(n){
+    currentQuestion=n;
+    document.querySelectorAll(".question").forEach(d=>d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    updateLeftPanel(n);
+    
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function updateLeftPanel(i){
+    const q = quizData[i];
+    const left = document.getElementById("left-panel");
+    left.innerHTML = `<h2>4. osztály</h2>`;
+
+    if(q.leftText){
+        const div = document.createElement("div");
+        div.style.lineHeight = "1.6";
+        div.innerHTML = q.leftText;
+        left.appendChild(div);
+    }
+
+    if(q.leftImage){
+        const img = document.createElement("img");
+        img.src = q.leftImage;
+        img.alt = "Ábra";
+        img.onclick=()=>{ 
+            const overlay = document.getElementById("image-overlay");
+            const overlayImg = document.getElementById("overlay-img");
+            overlayImg.src=img.src; 
+            overlay.style.display="flex"; 
+            setTimeout(() => overlayImg.style.transform = "scale(1)", 10);
+        };
+        left.appendChild(img);
+    }
+}
+
+/**
+ * A navigációs körök színezése a feladat státusza szerint (Piros/Sárga/Zöld)
+ */
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    if(!btn) return;
+    const q = quizData[i];
+    const wrap = document.getElementById(`q${i}`);
+    if(!wrap) return;
+
+    if(q.type === "dropdown-multiple-sentences"){
+        const selects = wrap.querySelectorAll("select");
+        let filled = 0;
+        selects.forEach(s => { if(s.value !== "") filled++; });
+        
+        if(filled === 0) btn.style.backgroundColor = "var(--danger)";
+        else if(filled < selects.length) btn.style.backgroundColor = "var(--warning)";
+        else btn.style.backgroundColor = "var(--success)";
+    } else if(q.type === "single"){
+        const checked = wrap.querySelector("input:checked");
+        btn.style.backgroundColor = checked ? "var(--success)" : "var(--danger)";
+    } else if(q.type === "multi"){
+        const checkedCount = wrap.querySelectorAll("input:checked").length;
+        const requiredCount = q.correct.length; // Elvárt helyes válaszok száma
+        
+        if(checkedCount === 0) {
+            btn.style.backgroundColor = "var(--danger)";
+        } else if(checkedCount < requiredCount) {
+            // Ha van jelölés, de kevesebb, mint amennyi helyes válasz létezik
+            btn.style.backgroundColor = "var(--warning)";
+        } else {
+            // Ha elérte vagy meghaladta az elvárt számot (teljesen kitöltöttnek tekintjük)
+            btn.style.backgroundColor = "var(--success)";
+        }
+    }
+}
+
+function finishQuiz(){
+    let totalScore=0;
+    let maxScore=0;
+    let feedback = "";
+
+    quizData.forEach((q,i)=>{
+        let questionScore=0;
+        let qMax = (q.points || 1);
+        maxScore += qMax;
+        const wrap=document.getElementById(`q${i}`);
+
+        if(q.type==="dropdown-multiple-sentences"){
+            const selects=[...wrap.querySelectorAll("select")];
+            selects.forEach(s=>{
+                const idx=Number(s.dataset.optIndex);
+                if(s.value !== "" && Number(s.value) === q.correct[idx]) questionScore++;
+            });
+        } else if(q.type==="single"){
+            const sel=wrap.querySelector("input:checked");
+            if(sel && Number(sel.value) === q.correct[0]) questionScore=1;
+        } else if(q.type==="multi"){
+            const sel = [...wrap.querySelectorAll(`input:checked`)].map(x=>Number(x.value));
+            const correctSelected = sel.filter(v=>q.correct.includes(v)).length;
+            const incorrectSelected = sel.filter(v=>!q.correct.includes(v)).length;
+            questionScore = correctSelected - incorrectSelected;
+            if(questionScore < 0) questionScore = 0;
+        }
+
+        totalScore += questionScore;
+        feedback += `<div style="padding:12px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+            <span><strong>${i+1}. kérdés:</strong> ${questionScore === qMax ? '✅' : questionScore > 0 ? '⚠️' : '❌'}</span>
+            <span style="font-weight:600;">${questionScore} / ${qMax} pont</span>
+        </div>`;
+    });
+
+    const percent = Math.round((totalScore / maxScore) * 100);
+    let color = percent > 80 ? "var(--success)" : percent > 50 ? "var(--warning)" : "var(--danger)";
+
+    document.getElementById("resultText").innerHTML= `
+        <div style="text-align:center; margin-bottom:30px; padding: 20px; border-radius: 12px; background: #f8fafc;">
+            <div style="font-size: 3.5rem; color: ${color}; font-weight:bold;">${percent}%</div>
+            <div style="font-size: 1.4rem; color: #64748b;">Összpontszám: ${totalScore} / ${maxScore}</div>
+        </div>
+        <div style="background:#ffffff; border: 1px solid #e5e7eb; border-radius:12px; overflow: hidden;">
+            <div style="padding:12px; background:#f1f5f9; font-weight:bold; border-bottom:1px solid #e5e7eb;">Részletes eredmények:</div>
+            ${feedback}
+        </div>
+    `;
+
+    document.getElementById("quiz-container").style.display="none";
+    document.getElementById("resultPage").style.display="block";
+    window.scrollTo(0,0);
+}
+
+function closeOverlay() {
+    const overlay = document.getElementById("image-overlay");
+    const overlayImg = document.getElementById("overlay-img");
+    overlayImg.style.transform = "scale(0.7)";
+    setTimeout(() => overlay.style.display="none", 200);
+}
+
+window.onload = initQuiz;
+</script>
+</body>
+</html>
