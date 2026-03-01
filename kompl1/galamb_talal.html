@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Komplex Szövegértés Időzítővel</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background-color: var(--bg-color); color: var(--text-color); }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+    }
+    
+    #quiz-container .left { 
+        width:35%; border-right:2px solid var(--border-color); 
+        padding: 30px; overflow-y:auto; background-color: #fafafa;
+    }
+    
+    #quiz-container .right { 
+        width:65%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden; position: relative;
+    }
+    
+    #timer-display {
+        position: absolute; top: 20px; right: 30px;
+        background: var(--danger); color: white; padding: 8px 15px;
+        border-radius: 20px; font-weight: bold; font-family: monospace; font-size: 1.2rem;
+        box-shadow: var(--shadow); z-index: 100;
+    }
+
+    .quiz-header { 
+        padding-bottom:15px; border-bottom:1px solid var(--border-color); 
+        margin-bottom: 20px; display:flex; flex-direction: column; align-items: flex-start; gap: 10px;
+    }
+    
+    .quiz-questions { overflow-y:auto; flex-grow:1; padding-right: 10px; }
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { 
+        width:32px; height:32px; line-height:32px; text-align:center; 
+        border-radius:50%; background-color: #d1d5db; color:white; 
+        font-weight: bold; cursor:pointer; transition: background-color 0.3s;
+    }
+    
+    .question { display:none; animation: fadeIn 0.3s; }
+    .question.active { display:block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:30px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    
+    button { padding:12px 24px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-prev { background-color: #9ca3af; color: white; }
+
+    .map-task-layout { display: flex; gap: 20px; align-items: flex-start; margin-top: 15px; }
+    .map-wrapper { flex: 3; position: relative; border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; background: white; }
+    .map-side-source { flex: 1; max-height: calc(100vh - 350px); overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: #f1f5f9; border-radius: 8px; }
+    .map-drop-zone { position: absolute; width: 60px; height: 24px; border: 2px dashed var(--primary); background: rgba(255, 255, 255, 0.7); border-radius: 6px; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; z-index: 10; font-size: 0.7rem; }
+    .draggable-card { background: var(--primary); color: white; padding: 6px 10px; border-radius: 6px; cursor: grab; font-size: 0.85rem; font-weight: 500; user-select: none; box-shadow: var(--shadow); text-align: center; }
+    
+    label { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    label:hover { background-color: #f8fafc; }
+    input { margin-right: 12px; width: 18px; height: 18px; }
+    select { padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); margin: 0 4px; }
+
+    #resultPage { display:none; padding:40px; max-width: 900px; margin: 30px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+    #left-panel img { width: 100%; border-radius: 8px; margin-top: 15px; border: 1px solid var(--border-color); }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel"></div>
+  <div class="right">
+    <div id="timer-display">00:00</div>
+    <div class="quiz-header">
+      <h2 style="margin:0;">Szövegértési feladatsor</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 style="text-align:center;">Eredmény</h1>
+  <div id="resultText"></div>
+  <div style="text-align:center; margin-top:30px;">
+      <button onclick="location.reload()" class="btn-next">Újrakezdés</button>
+  </div>
+</div>
+
+<script>
+// --- KONFIGURÁCIÓ ---
+const QUIZ_TIME_LIMIT = 35 * 60; 
+const DEBUG_MODE = false; 
+
+const quizData = [
+    {
+      question: "1. Miért ütötte meg Lackó Gyulukát a történet elején?",
+      type: "single",
+      options: ["Elvette a labdáját", "Hencegett, hogy ő lesz a legjobb tanuló", "Nem akart vele játszani", "Lökdösődött a sorban"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Egyes!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "2. Mit adott Lackó Gyulukának, hogy az ne árulja el az apukájának az ütést?",
+      type: "single",
+      options: ["Egy gombfocistát", "Egy üveggolyót", "Egy postagalambot", "A tízóraiját"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "3. Miért volt biztos Lackó abban, hogy a galamb visszaszáll hozzá?",
+      type: "single",
+      options: ["Mert éhes volt", "Mert nem hagyja el a párját", "Mert be volt tanítva", "Mert Gyuluka elengedte"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "4. Mi volt az első trükk, amit Gyuluka elárult?",
+      type: "single",
+      options: ["A könyvet a párna alá kell tenni", "Szerencsepénzt kell hordani", "Háromszor meg kell pördülni", "Csomót kell kötni a zsebkendőre"],
+      correct: [0],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "5. Mit csinált Lackó egész délután, miután megnyugodott a trükk hallatán?",
+      type: "single",
+      options: ["Tanult", "Gombfocizott", "Rúgták a labdát", "Olvasott"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "6. Hányast kapott Lackó az első feleletére?",
+      type: "single",
+      options: ["Ötöst", "egyest", "Hármast", "Kettest"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "7. Mit kért Gyuluka a második trükkért cserébe?",
+      type: "single",
+      options: ["Még egy galambot", "A középcsatár gombfocistát", "Egy szelet csokit", "A tolltartóját"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "8. Hogyan kellett Lackónak iskolába mennie a második trükk szerint?",
+      type: "single",
+      options: ["Futva", "Hátrafelé gyalogolva", "A járdaszegélyen szökdécselve", "Csukott szemmel"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "9. Melyik lábbal kellett a páratlan kockakövekre lépni?",
+      type: "single",
+      options: ["Mindegyikkel", "A ballal", "A jobbal", "Páros lábbal"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "10. Mit kellett mormolni a harmadik trükk elvégzésekor?",
+      type: "single",
+      options: ["Abrakadabra", "Hókuszpókusz", "Kuruzsi, pimpó, bakmacska", "Csiribí-csiribá"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "11. Mit ígért a harmadik trükk Lackónak?",
+      type: "single",
+      options: ["Hogy ötöst kap", "Hogy nem kérdezi a tanító néni", "Hogy hamarabb hazamehet", "Hogy elmarad az óra"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "12. Milyen tárgyakat NEM adott oda Lackó Gyulukának a történet során? (Többválasztásos)",
+      type: "multiple",
+      options: ["Postagalamb", "Középcsatár gombfocista", "Második legjobb gombfocista", "Számtan könyv"],
+      correct: [3],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "13. Melyik óráról hívta ki a tanító néni Lackót a táblához?",
+      type: "single",
+      options: ["Olvasás", "Környezetismeret", "Számtan", "Ének"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "14. Hol találta meg Lackó Gyulukát a felelet után?",
+      type: "single",
+      options: ["A tanteremben", "Az iskola háta mögött", "A focipályán", "A kapu előtt"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "15. Mit csinált Gyuluka, amikor Lackó rátalált?",
+      type: "single",
+      options: ["Tanult", "Uzsonnázott", "Gombfocizott a csodacsatárral", "Aludt"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "16. Hányadik osztályba járt Lackó?",
+      type: "single",
+      options: ["Másodikba", "Harmadikba", "Negyedikes volt", "Ötödikbe"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "17. Igaz vagy hamis: A tanító néni szerint a trükkök tényleg működnek.",
+      type: "single",
+      options: ["Igaz", "Hamis"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "18. Mit ajánlott Lackónak az osztálytársa a történet legvégén?",
+      type: "single",
+      options: ["Még több trükköt", "Hogy tanulja meg a leckét", "Hogy ne járjon iskolába", "Hogy vegyen új gombfocit"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "19. Mit kért az osztálytárs a valódi jó tanácsért?",
+      type: "single",
+      options: ["Egy gombfocistát", "A galamb párját", "Semmit, ingyen adta", "Két tízórait"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "20. Milyen volt Lackó hozzáállása a végén az osztálytársa javaslatához?",
+      type: "single",
+      options: ["Mérges lett", "Elcsodálkozott, hogy ez eddig nem jutott eszébe", "Kinevette", "Nem hitte el"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>A galamb, a gombfoci meg a trükkök</h2><p><br><br>Én tulajdonképpen nem akartam orrba vágni Gyulukát. De nagyon hencegett, hogy ő lesz az osztályban a legjobb tanuló. Ezért aztán egy kicsit orrba simogattam. Bömbölt.<br>– Megállj, megyek és megmondalak apukádnak! – sírta.<br>Nekiadtam az egyik postagalambomat, hogy fogja be a száját. Tudtam, a galamb visszarepül, mert nem hagyja a párját. Gyuluka hazavitte a galambot, aztán mindketten visszatértek. A galamb repült, Gyuluka ugrált.<br>– Trükköm van arra, hogy az ember jól feleljen.<br>– Halljuk!<br>– Mit adsz érte?<br>– Két pofont, ha rögtön nem mondod el!<br>– Jó – felelte –, az egyiket elárulom.<br>Azzal magyarázni kezdte, hogy a könyveket este be kell tenni a párna alá, s reggelre bemegy az ember fejébe a lecke.<br>– Ez biztos? – hitetlenkedtem. Azt mondta, olyan biztos, ahogy őt látom. Ettől nagyon megnyugodtam, s egész délután rúgtuk a labdát. Este meg be a könyvet a párna alá!<br>Másnap egyesre feleltem. Gyuluka szünetben azt mondta, ő nem érti, hogy történhetett. Aztán a homlokára csapott.<br>– Persze, elfelejtettél valamit! Anélkül nem érvényes.<br>– Mi?<br>– A trükk. Elárulom, ha nekem adod a gombfocidból a középcsatárt.<br>Nekiadtam.<br>– Hát figyelj! Csak a járda szegélyén szabad iskolába menni, s mindig jobb lábbal lépj a páratlan kockakövekre!<br>Másnap úgy szökdöstem a járdaszegélyen, mint egy szöcske. Nem is kaptam egyest. Csak az utolsó órán! Erre azt mondta Gyuluka:<br>– Igen, mert addigra elmúlt a trükk hatása. De arra is van trükk, hogy ne múljon el a trükk.<br>Ekkorra már teljesen belebolondultam a trükkökbe. Nekiadtam a második legjobb gombfocistámat is.<br>– Köpj a hátad mögé – mondta Gyuluka –, s mormold el háromszor, hogy „Kuruzsi, pimpó, bakmacska”, akkor nem kérdez a tanító néni.<br>Másnap betartottam az összes trükköt: könyv a párna alatt, szökdösés a kockakövön, kiköptem, mondtam a pimpót. Nem is történt volna semmi baj, ha a tanító néninek eszébe nem jut, hogy kihívjon számtanból. De kihívott! Elégtelen!<br>Szünetben kerestem Gyulukát. Az iskola háta mögött találtam meg. Gombfocizott. Éppen a tőlem elcsalt csodacsatárral lőtt egy gólt. Megfogtam, de úgy, hogy üvölteni kezdett.<br>A gyerekek odagyűltek, s persze jött a tanító néni is. Mindent el kellett mondanom a galambról, a gombfociról meg a trükkökről.<br>– No, Lackó, sose gondoltam volna, hogy egy negyedikes hihet ilyen butaságokban!<br>Másnap az egyik osztálytársam félrehívott:<br>– Te Lackó! Tudok egy jó trükköt. Attól mindig jól fogsz felelni.<br>– Mit kérsz érte? – néztem rá gyanakodva.<br>– Semmit. Ingyen elárulom. Tanuld meg a leckét! Ha akarod, segítek neked!<br>Nahát! Tanulni trükkök nélkül?! Hogy ez nekem sohase jutott eszembe!<br><br>Méhes György"
+    },
+    {
+      question: "21. Válaszd ki a szövegbe illő helyes kifejezéseket!",
+      type: "dropdown-multiple-sentences",
+      sentences: [
+          { text: "Neumann, Szilárd, Wigner ________ voltak.", blanks: [3] },
+          { text: "Később ________ világhírűvé váltak.", blanks: [1] },
+          { text: "Mindhárman az atomenergia felhasználását ________.", blanks: [4] },
+          { text: "Wigner Jenő munkájáért ________ Nobel-díjat kapott.", blanks: [3] },
+          { text: "Neumann János a ________ atyja.", blanks: [3] },
+          { text: "Az ________ megépített komputer szoba nagyságú volt.", blanks: [1] },
+          { text: "________ az e-mail megalkotója.", blanks: [0] },
+          { text: "Simonyi Károly fejlesztette ki a ________ programot.", blanks: [5] }
+      ],
+      options: [
+          ["tornászok", "irodalmárok", "matekzsenik"],
+          ["mindhárman", "mind a négyen", "ketten"],
+          ["tiltották", "kutatták", "titkolták"],
+          ["1943-ban", "1953-ban", "1963-ban"],
+          ["számológép", "számítógép", "telefon"],
+          ["1943-ban", "1953-ban", "1963-ban"],
+          ["Simonyi Károly", "Kemény János", "Gróf András"],
+          ["Word", "PDF", "Paint"]
+      ],
+      correct: [2, 0, 1, 2, 1, 0, 1, 0], 
+      points: 8,
+      leftText: "<h2>Magyar lángelmék a 20. századból</h2><p><br><br>„Neumann, Szilárd, Wigner, mars ki a Városligetbe!” – Ezt nem három vásott kölyöknek mondta a számtantanár, hanem három matekzseninek: Neumann Jánosnak, Szilárd Leónak és Wigner Jenőnek, akik osztálytársak voltak Budapesten a Fasori Gimnáziumban, s oly döbbenetes volt a matematikai tudásuk, hogy dolgozatírás helyett inkább levegőzni küldte őket a tanáruk, hiszen pillanatok alatt megoldották a legnehezebb feladatot is. Később mindhárman világhírűvé váltak.<br>Wigner Jenő, Szilárd Leó és Teller Ede az atomenergia békés célú felhasználását kutatta. Tudásukkal hatalmas erőt szabadítottak ki a palackból. De mindhárman tiltakoztak az ellen, hogy háborús célra, emberek ellen használják az atomenergiát. A maghasadásban nem a pusztító bombát, hanem az energiaforrást keresték. Bár mindannyian megérdemelték volna, közülük csak Wigner Jenő, a világ első reaktormérnöke kapta meg a Nobel-díjat 1963-ban.<br>Neumann János a számítógép atyja, korának egyik legnagyobb lángelméje. Az általa 1943-ban megépített komputer akkora volt, mint egy szoba, de kétségtelenül ez az őse a mára már parányira zsugorodott számítógépeknek. Egy kutatótársa szerint a maga idejében Neumann János volt a világ legokosabb embere.<br>Nemcsak a számítógép megalkotása, hanem fejlesztésének fontos lépései is magyar nevekhez kötődnek: Kemény János a legelterjedtebb programozási nyelv és a világot meghódító e-mail-rendszer megalkotója. Simonyi Károly fejlesztette ki a Word szövegszerkesztő programot, a híres Microsoft cég második embere lett. Gróf Andrást a személyi számítógépek megalkotása miatt tartják az informatikai forradalom egyik legnagyobb alakjának.<br><br>A magyar tudósok különösen vonzódtak a repülés tudományához. A levegőt meghódító felfedezéseik évtizedekkel megelőzték korukat. Asbóth Oszkár, Kármán Tódor munkatársaként, a helikopterek történetének kimagasló alakja.<br>Kármán Tódor az első helikopter és a sugárhajtású repülőgépek kifejlesztője. Kutatásai alapján valósulhatott meg a hangsebességet túllépő repülőgép és a rakétatechnika. Fonó Albert a sugárhajtás elvének atyja. A Hoff Miklós által kifejlesztett vékony falú szerkezeteket alkalmazzák ma is világszerte a repülőgépek, űrrakéták, tengeralattjárók építésénél.<br>Csonka János és Bánki Donát nevét mindenkinek ismernie kellene, aki autóba ül. A világon burrogó sok száz millió benzinmotor mind az általuk feltalált porlasztóval működik. Ha vonat robog el melletted, gondolj arra, hogy a világ első villamosított vasútvonalát is magyar mérnök építette, Kandó Kálmán.<br>A mozdonyokat, kocsikat ehhez a villanyvasúthoz a budapesti Ganz gyárban készítették.<br>Mihály Dénes a televíziós közvetítés, a hangosfilm, Goldmark Péter a színes televízió, Csicsátka Antal a sztereó technika feltalálója. Gábor Dénes igazi mérnöki lángelme volt: száz találmányát szabadalmazták. Legjelentősebb felfedezése, a hologram hozta meg számára a fizikai Nobel-díjat. De ő alkotta meg a ma slágernek számító, lapos képernyőjű tévékészüléket is.<br>Harsányi János matematikai képletekkel számította ki, mik a legjobb lépések, ha nem ismerjük pontosan az ellenfél szándékait. Ez a játékelmélet. Országok és a világgazdaság sorsát eldöntő, komoly játék ez, de törvényei hasonlóak a társasjátékéhoz. Hát ilyen „játszva” kapta meg Harsányi János 1994-ben a Nobel-díjat. <br>Rubik Ernő zseniális találmánya, a világot meghódító bűvös kocka nem gyerekjáték. Valójában igen bonyolult matematikai tudást igényel mind az alkotó, mind a játékos részéről.</p>"
+    },
+    {
+      question: "22. Számozással állítsd előfordulásuk sorrendjébe a kifejezéseket!",
+      type: "map-dragdrop",
+      mapImage: "teszt1.jpg", 
+      elemek: [
+          { szo: "1.", kat: "1", top: "19.8%", left: "9.9%" },
+          { szo: "2.", kat: "2", top: "75.0%", left: "9.9%" },
+          { szo: "3.", kat: "3", top: "53.3%", left: "9.9%" },
+          { szo: "4.", kat: "4", top: "41.4%", left: "9.9%" },
+          { szo: "5.", kat: "5", top: "62.7%", left: "9.9%" },
+          { szo: "6.", kat: "6", top: "31.0%", left: "9.9%" },
+          { szo: "7.", kat: "7", top: "9.7%", left: "9.9%" },
+          { szo: "8.", kat: "8", top: "86.0%", left: "9.9%" }
+      ],
+      points: 8,
+      leftText: "<h2>Magyar lángelmék a 20. századból</h2><p><br><br>„Neumann, Szilárd, Wigner, mars ki a Városligetbe!” – Ezt nem három vásott kölyöknek mondta a számtantanár, hanem három matekzseninek: Neumann Jánosnak, Szilárd Leónak és Wigner Jenőnek, akik osztálytársak voltak Budapesten a Fasori Gimnáziumban, s oly döbbenetes volt a matematikai tudásuk, hogy <b>dolgozatírás helyett</b> inkább levegőzni küldte őket a tanáruk, hiszen <b>pillanatok alatt megoldották</b> a legnehezebb feladatot is. Később mindhárman világhírűvé váltak.<br>Wigner Jenő, Szilárd Leó és Teller Ede az atomenergia békés célú felhasználását kutatta. Tudásukkal <b>hatalmas erőt szabadítottak ki</b> a palackból. De mindhárman tiltakoztak az ellen, hogy háborús célra, emberek ellen használják az atomenergiát. A maghasadásban nem a pusztító bombát, hanem az <b>energiaforrást keresték</b>. Bár mindannyian megérdemelték volna, közülük csak Wigner Jenő, a világ első reaktormérnöke kapta meg a Nobel-díjat 1963-ban.<br>Neumann János a számítógép atyja, korának egyik <b>legnagyobb lángelméje</b>. Az általa 1943-ban megépített komputer akkora volt, mint egy szoba, de kétségtelenül ez az őse a mára már parányira zsugorodott számítógépeknek. Egy kutatótársa szerint a maga idejében Neumann János volt a <b>világ legokosabb embere</b>.<br>Nemcsak a számítógép megalkotása, hanem fejlesztésének fontos lépései is magyar nevekhez kötődnek: Kemény János a <b>legelterjedtebb programozási nyelv</b> és a világot meghódító e-mail-rendszer megalkotója. Simonyi Károly fejlesztette ki a Word szövegszerkesztő programot, a híres Microsoft cég második embere lett. Gróf Andrást a személyi számítógépek megalkotása miatt tartják az <b>informatikai forradalom</b> egyik legnagyobb alakjának.<br><br>A magyar tudósok különösen vonzódtak a repülés tudományához. A levegőt meghódító felfedezéseik évtizedekkel megelőzték korukat. Asbóth Oszkár, Kármán Tódor munkatársaként, a helikopterek történetének kimagasló alakja.<br>Kármán Tódor az első helikopter és a sugárhajtású repülőgépek kifejlesztője. Kutatásai alapján valósulhatott meg a hangsebességet túllépő repülőgép és a rakétatechnika. Fonó Albert a sugárhajtás elvének atyja. A Hoff Miklós által kifejlesztett vékony falú szerkezeteket alkalmazzák ma is világszerte a repülőgépek, űrrakéták, tengeralattjárók építésénél.<br>Csonka János és Bánki Donát nevét mindenkinek ismernie kellene, aki autóba ül. A világon burrogó sok száz millió benzinmotor mind az általuk feltalált porlasztóval működik. Ha vonat robog el melletted, gondolj arra, hogy a világ első villamosított vasútvonalát is magyar mérnök építette, Kandó Kálmán.<br>A mozdonyokat, kocsikat ehhez a villanyvasúthoz a budapesti Ganz gyárban készítették.<br>Mihály Dénes a televíziós közvetítés, a hangosfilm, Goldmark Péter a színes televízió, Csicsátka Antal a sztereó technika feltalálója. Gábor Dénes igazi mérnöki lángelme volt: száz találmányát szabadalmazták. Legjelentősebb felfedezése, a hologram hozta meg számára a fizikai Nobel-díjat. De ő alkotta meg a ma slágernek számító, lapos képernyőjű tévékészüléket is.<br>Harsányi János matematikai képletekkel számította ki, mik a legjobb lépések, ha nem ismerjük pontosan az ellenfél szándékait. Ez a játékelmélet. Országok és a világgazdaság sorsát eldöntő, komoly játék ez, de törvényei hasonlóak a társasjátékéhoz. Hát ilyen „játszva” kapta meg Harsányi János 1994-ben a Nobel-díjat. <br>Rubik Ernő zseniális találmánya, a világot meghódító bűvös kocka nem gyerekjáték. Valójában igen bonyolult matematikai tudást igényel mind az alkotó, mind a játékos részéről.</p>"
+    },
+
+{
+  question: "23. Húzd a tudósok nevét a hozzájuk tartozó találmányok mellé!",
+  type: "map-dragdrop",
+  mapImage: "talalmanyok.jpg", // Itt a találmányok listáját tartalmazó képedet használd
+  elemek: [
+      { szo: "számítógép", kat: "1", top: "50.5%", left: "45%" }, 
+      { szo: "e-mail", kat: "2", top: "91.6%", left: "45%" }, 
+      { szo: "Word", kat: "3", top: "25.6%", left: "45%" }, 
+      { szo: "helikopter", kat: "4", top: "74.8%", left: "45%" }, 
+      { szo: "sugárhajtás", kat: "5", top: "41.6%", left: "45%" }, 
+      { szo: "porlasztó", kat: "6", top: "9.2%", left: "45%" }, 
+      { szo: "hangosfilm", kat: "7", top: "18.4%", left: "45%" }, 
+      { szo: "sztereo", kat: "8", top: "67.6%", left: "45%" }, 
+      { szo: "hologram", kat: "9", top: "32.6%", left: "45%" }, 
+      { szo: "játékelmélet", kat: "10", top: "85%", left: "45%" }, 
+      { szo: "bűvös kocka", kat: "11", top: "58.8%", left: "45%" }, 
+        ],
+  points: 11,
+  leftText: "<h2>Magyar lángelmék a 20. századból</h2><p><br><br>„Neumann, Szilárd, Wigner, mars ki a Városligetbe!” – Ezt nem három vásott kölyöknek mondta a számtantanár, hanem három matekzseninek: Neumann Jánosnak, Szilárd Leónak és Wigner Jenőnek, akik osztálytársak voltak Budapesten a Fasori Gimnáziumban, s oly döbbenetes volt a matematikai tudásuk, hogy dolgozatírás helyett inkább levegőzni küldte őket a tanáruk, hiszen pillanatok alatt megoldották a legnehezebb feladatot is. Később mindhárman világhírűvé váltak.<br>Wigner Jenő, Szilárd Leó és Teller Ede az atomenergia békés célú felhasználását kutatta. Tudásukkal hatalmas erőt szabadítottak ki a palackból. De mindhárman tiltakoztak az ellen, hogy háborús célra, emberek ellen használják az atomenergiát. A maghasadásban nem a pusztító bombát, hanem az energiaforrást keresték. Bár mindannyian megérdemelték volna, közülük csak Wigner Jenő, a világ első reaktormérnöke kapta meg a Nobel-díjat 1963-ban.<br>Neumann János a számítógép atyja, korának egyik legnagyobb lángelméje. Az általa 1943-ban megépített komputer akkora volt, mint egy szoba, de kétségtelenül ez az őse a mára már parányira zsugorodott számítógépeknek. Egy kutatótársa szerint a maga idejében Neumann János volt a világ legokosabb embere.<br>Nemcsak a számítógép megalkotása, hanem fejlesztésének fontos lépései is magyar nevekhez kötődnek: Kemény János a legelterjedtebb programozási nyelv és a világot meghódító e-mail-rendszer megalkotója. Simonyi Károly fejlesztette ki a Word szövegszerkesztő programot, a híres Microsoft cég második embere lett. Gróf Andrást a személyi számítógépek megalkotása miatt tartják az informatikai forradalom egyik legnagyobb alakjának.<br><br>A magyar tudósok különösen vonzódtak a repülés tudományához. A levegőt meghódító felfedezéseik évtizedekkel megelőzték korukat. Asbóth Oszkár, Kármán Tódor munkatársaként, a helikopterek történetének kimagasló alakja.<br>Kármán Tódor az első helikopter és a sugárhajtású repülőgépek kifejlesztője. Kutatásai alapján valósulhatott meg a hangsebességet túllépő repülőgép és a rakétatechnika. Fonó Albert a sugárhajtás elvének atyja. A Hoff Miklós által kifejlesztett vékony falú szerkezeteket alkalmazzák ma is világszerte a repülőgépek, űrrakéták, tengeralattjárók építésénél.<br>Csonka János és Bánki Donát nevét mindenkinek ismernie kellene, aki autóba ül. A világon burrogó sok száz millió benzinmotor mind az általuk feltalált porlasztóval működik. Ha vonat robog el melletted, gondolj arra, hogy a világ első villamosított vasútvonalát is magyar mérnök építette, Kandó Kálmán.<br>A mozdonyokat, kocsikat ehhez a villanyvasúthoz a budapesti Ganz gyárban készítették.<br>Mihály Dénes a televíziós közvetítés, a hangosfilm, Goldmark Péter a színes televízió, Csicsátka Antal a sztereó technika feltalálója. Gábor Dénes igazi mérnöki lángelme volt: száz találmányát szabadalmazták. Legjelentősebb felfedezése, a hologram hozta meg számára a fizikai Nobel-díjat. De ő alkotta meg a ma slágernek számító, lapos képernyőjű tévékészüléket is.<br>Harsányi János matematikai képletekkel számította ki, mik a legjobb lépések, ha nem ismerjük pontosan az ellenfél szándékait. Ez a játékelmélet. Országok és a világgazdaság sorsát eldöntő, komoly játék ez, de törvényei hasonlóak a társasjátékéhoz. Hát ilyen „játszva” kapta meg Harsányi János 1994-ben a Nobel-díjat. <br>Rubik Ernő zseniális találmánya, a világot meghódító bűvös kocka nem gyerekjáték. Valójában igen bonyolult matematikai tudást igényel mind az alkotó, mind a játékos részéről.</p>"
+},
+
+{
+  question: "24. Válaszd ki a legördülő menüből a helyes választ a kérdésekre!",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "a) Mihez vonzódtak különösen a magyar tudósok? ", blanks: [7] },
+    { text: "b) Mivel vált ismertté Csonka János és Bánki Donát neve? ", blanks: [10] },
+    { text: "c) Ki volt a sztereó technika feltalálója? ", blanks: [7] },
+    { text: "d) Melyik felfedezéséért kapott Nobel-díjat Gábor Dénes? ", blanks: [7] },
+    { text: "e) Ki a világot meghódító bűvös kocka feltalálója? ", blanks: [8] }
+  ],
+  options: [
+    ["a kerékpározáshoz", "a repülés tudományához", "a hajózáshoz"],
+    ["a porlasztó feltalálásával", "a kerék feltalálásával", "a fékpedál feltalálásával"],
+    ["Mihály Dénes", "Goldmark Péter", "Csicsátka Antal"],
+    ["hologram", "hangosfilm", "színes televízió"],
+    ["Harsányi János", "Rubik Ernő", "Asbóth Oszkár"]
+  ],
+  correct: [1, 0, 2, 0, 1], // Az opciók indexei (0-tól kezdve)
+  points: 5,
+  leftText: "<h2>Magyar lángelmék a 20. századból</h2><p><br><br>„Neumann, Szilárd, Wigner, mars ki a Városligetbe!” – Ezt nem három vásott kölyöknek mondta a számtantanár, hanem három matekzseninek: Neumann Jánosnak, Szilárd Leónak és Wigner Jenőnek, akik osztálytársak voltak Budapesten a Fasori Gimnáziumban, s oly döbbenetes volt a matematikai tudásuk, hogy dolgozatírás helyett inkább levegőzni küldte őket a tanáruk, hiszen pillanatok alatt megoldották a legnehezebb feladatot is. Később mindhárman világhírűvé váltak.<br>Wigner Jenő, Szilárd Leó és Teller Ede az atomenergia békés célú felhasználását kutatta. Tudásukkal hatalmas erőt szabadítottak ki a palackból. De mindhárman tiltakoztak az ellen, hogy háborús célra, emberek ellen használják az atomenergiát. A maghasadásban nem a pusztító bombát, hanem az energiaforrást keresték. Bár mindannyian megérdemelték volna, közülük csak Wigner Jenő, a világ első reaktormérnöke kapta meg a Nobel-díjat 1963-ban.<br>Neumann János a számítógép atyja, korának egyik legnagyobb lángelméje. Az általa 1943-ban megépített komputer akkora volt, mint egy szoba, de kétségtelenül ez az őse a mára már parányira zsugorodott számítógépeknek. Egy kutatótársa szerint a maga idejében Neumann János volt a világ legokosabb embere.<br>Nemcsak a számítógép megalkotása, hanem fejlesztésének fontos lépései is magyar nevekhez kötődnek: Kemény János a legelterjedtebb programozási nyelv és a világot meghódító e-mail-rendszer megalkotója. Simonyi Károly fejlesztette ki a Word szövegszerkesztő programot, a híres Microsoft cég második embere lett. Gróf Andrást a személyi számítógépek megalkotása miatt tartják az informatikai forradalom egyik legnagyobb alakjának.<br><br>A magyar tudósok különösen vonzódtak a repülés tudományához. A levegőt meghódító felfedezéseik évtizedekkel megelőzték korukat. Asbóth Oszkár, Kármán Tódor munkatársaként, a helikopterek történetének kimagasló alakja.<br>Kármán Tódor az első helikopter és a sugárhajtású repülőgépek kifejlesztője. Kutatásai alapján valósulhatott meg a hangsebességet túllépő repülőgép és a rakétatechnika. Fonó Albert a sugárhajtás elvének atyja. A Hoff Miklós által kifejlesztett vékony falú szerkezeteket alkalmazzák ma is világszerte a repülőgépek, űrrakéták, tengeralattjárók építésénél.<br>Csonka János és Bánki Donát nevét mindenkinek ismernie kellene, aki autóba ül. A világon burrogó sok száz millió benzinmotor mind az általuk feltalált porlasztóval működik. Ha vonat robog el melletted, gondolj arra, hogy a világ első villamosított vasútvonalát is magyar mérnök építette, Kandó Kálmán.<br>A mozdonyokat, kocsikat ehhez a villanyvasúthoz a budapesti Ganz gyárban készítették.<br>Mihály Dénes a televíziós közvetítés, a hangosfilm, Goldmark Péter a színes televízió, Csicsátka Antal a sztereó technika feltalálója. Gábor Dénes igazi mérnöki lángelme volt: száz találmányát szabadalmazták. Legjelentősebb felfedezése, a hologram hozta meg számára a fizikai Nobel-díjat. De ő alkotta meg a ma slágernek számító, lapos képernyőjű tévékészüléket is.<br>Harsányi János matematikai képletekkel számította ki, mik a legjobb lépések, ha nem ismerjük pontosan az ellenfél szándékait. Ez a játékelmélet. Országok és a világgazdaság sorsát eldöntő, komoly játék ez, de törvényei hasonlóak a társasjátékéhoz. Hát ilyen „játszva” kapta meg Harsányi János 1994-ben a Nobel-díjat. <br>Rubik Ernő zseniális találmánya, a világot meghódító bűvös kocka nem gyerekjáték. Valójában igen bonyolult matematikai tudást igényel mind az alkotó, mind a játékos részéről.</p>"
+},
+
+{
+  question: "25. Számozással állítsd sorrendbe a bekezdések címeit a szöveg alapján!",
+  type: "map-dragdrop",
+  mapImage: "teszt2.jpg", // A feltöltött image_e6aca1.png képedet használd
+  elemek: [
+      { szo: "1.", kat: "repules", top: "34.9%", left: "6.1%" },      // A repülés
+      { szo: "2.", kat: "motor_vasut", top: "80.6%", left: "6.1%" }, // A benzinmotortól a villanyvasútig
+      { szo: "3.", kat: "tv_hologram", top: "8%", left: "6.1%" }, // A televíziózás és a hologram
+      { szo: "4.", kat: "jatek_tudomany", top: "56.6%", left: "6.1%" } // A játék, mint tudomány
+  ],
+  points: 4,
+  leftText: "<h2>Magyar lángelmék a 20. századból</h2><p><br><br>„Neumann, Szilárd, Wigner, mars ki a Városligetbe!” – Ezt nem három vásott kölyöknek mondta a számtantanár, hanem három matekzseninek: Neumann Jánosnak, Szilárd Leónak és Wigner Jenőnek, akik osztálytársak voltak Budapesten a Fasori Gimnáziumban, s oly döbbenetes volt a matematikai tudásuk, hogy dolgozatírás helyett inkább levegőzni küldte őket a tanáruk, hiszen pillanatok alatt megoldották a legnehezebb feladatot is. Később mindhárman világhírűvé váltak.<br>Wigner Jenő, Szilárd Leó és Teller Ede az atomenergia békés célú felhasználását kutatta. Tudásukkal hatalmas erőt szabadítottak ki a palackból. De mindhárman tiltakoztak az ellen, hogy háborús célra, emberek ellen használják az atomenergiát. A maghasadásban nem a pusztító bombát, hanem az energiaforrást keresték. Bár mindannyian megérdemelték volna, közülük csak Wigner Jenő, a világ első reaktormérnöke kapta meg a Nobel-díjat 1963-ban.<br>Neumann János a számítógép atyja, korának egyik legnagyobb lángelméje. Az általa 1943-ban megépített komputer akkora volt, mint egy szoba, de kétségtelenül ez az őse a mára már parányira zsugorodott számítógépeknek. Egy kutatótársa szerint a maga idejében Neumann János volt a világ legokosabb embere.<br>Nemcsak a számítógép megalkotása, hanem fejlesztésének fontos lépései is magyar nevekhez kötődnek: Kemény János a legelterjedtebb programozási nyelv és a világot meghódító e-mail-rendszer megalkotója. Simonyi Károly fejlesztette ki a Word szövegszerkesztő programot, a híres Microsoft cég második embere lett. Gróf Andrást a személyi számítógépek megalkotása miatt tartják az informatikai forradalom egyik legnagyobb alakjának.<br><br>A magyar tudósok különösen vonzódtak a repülés tudományához. A levegőt meghódító felfedezéseik évtizedekkel megelőzték korukat. Asbóth Oszkár, Kármán Tódor munkatársaként, a helikopterek történetének kimagasló alakja.<br>Kármán Tódor az első helikopter és a sugárhajtású repülőgépek kifejlesztője. Kutatásai alapján valósulhatott meg a hangsebességet túllépő repülőgép és a rakétatechnika. Fonó Albert a sugárhajtás elvének atyja. A Hoff Miklós által kifejlesztett vékony falú szerkezeteket alkalmazzák ma is világszerte a repülőgépek, űrrakéták, tengeralattjárók építésénél.<br>Csonka János és Bánki Donát nevét mindenkinek ismernie kellene, aki autóba ül. A világon burrogó sok száz millió benzinmotor mind az általuk feltalált porlasztóval működik. Ha vonat robog el melletted, gondolj arra, hogy a világ első villamosított vasútvonalát is magyar mérnök építette, Kandó Kálmán.<br>A mozdonyokat, kocsikat ehhez a villanyvasúthoz a budapesti Ganz gyárban készítették.<br>Mihály Dénes a televíziós közvetítés, a hangosfilm, Goldmark Péter a színes televízió, Csicsátka Antal a sztereó technika feltalálója. Gábor Dénes igazi mérnöki lángelme volt: száz találmányát szabadalmazták. Legjelentősebb felfedezése, a hologram hozta meg számára a fizikai Nobel-díjat. De ő alkotta meg a ma slágernek számító, lapos képernyőjű tévékészüléket is.<br>Harsányi János matematikai képletekkel számította ki, mik a legjobb lépések, ha nem ismerjük pontosan az ellenfél szándékait. Ez a játékelmélet. Országok és a világgazdaság sorsát eldöntő, komoly játék ez, de törvényei hasonlóak a társasjátékéhoz. Hát ilyen „játszva” kapta meg Harsányi János 1994-ben a Nobel-díjat. <br>Rubik Ernő zseniális találmánya, a világot meghódító bűvös kocka nem gyerekjáték. Valójában igen bonyolult matematikai tudást igényel mind az alkotó, mind a játékos részéről.</p>"
+},
+
+{
+  question: "26. Melyik képen melyik feltalálót látod a találmányával?",
+  type: "map-dragdrop",
+  mapImage: "tal1.jpg", // A feltöltött image_e6aca1.png képedet használd
+  elemek: [
+      { szo: "Bánki Donát", kat: "repules", top: "7.4%", left: "6.4%" },      
+      { szo: "Kandó Kálmán", kat: "motor_vasut", top: "7.4%", left: "57.5%" }, 
+      { szo: "Mihály Dénes", kat: "tv_hologram", top: "56%", left: "6.4%" }, // A televíziózás és a hologram
+      { szo: "Rubik Ernő", kat: "jatek_tudomany", top: "56%", left: "57.5%" } 
+  ],
+  points: 4,
+  leftText: "<h2>Magyar lángelmék a 20. századból</h2><p><br><br>„Neumann, Szilárd, Wigner, mars ki a Városligetbe!” – Ezt nem három vásott kölyöknek mondta a számtantanár, hanem három matekzseninek: Neumann Jánosnak, Szilárd Leónak és Wigner Jenőnek, akik osztálytársak voltak Budapesten a Fasori Gimnáziumban, s oly döbbenetes volt a matematikai tudásuk, hogy dolgozatírás helyett inkább levegőzni küldte őket a tanáruk, hiszen pillanatok alatt megoldották a legnehezebb feladatot is. Később mindhárman világhírűvé váltak.<br>Wigner Jenő, Szilárd Leó és Teller Ede az atomenergia békés célú felhasználását kutatta. Tudásukkal hatalmas erőt szabadítottak ki a palackból. De mindhárman tiltakoztak az ellen, hogy háborús célra, emberek ellen használják az atomenergiát. A maghasadásban nem a pusztító bombát, hanem az energiaforrást keresték. Bár mindannyian megérdemelték volna, közülük csak Wigner Jenő, a világ első reaktormérnöke kapta meg a Nobel-díjat 1963-ban.<br>Neumann János a számítógép atyja, korának egyik legnagyobb lángelméje. Az általa 1943-ban megépített komputer akkora volt, mint egy szoba, de kétségtelenül ez az őse a mára már parányira zsugorodott számítógépeknek. Egy kutatótársa szerint a maga idejében Neumann János volt a világ legokosabb embere.<br>Nemcsak a számítógép megalkotása, hanem fejlesztésének fontos lépései is magyar nevekhez kötődnek: Kemény János a legelterjedtebb programozási nyelv és a világot meghódító e-mail-rendszer megalkotója. Simonyi Károly fejlesztette ki a Word szövegszerkesztő programot, a híres Microsoft cég második embere lett. Gróf Andrást a személyi számítógépek megalkotása miatt tartják az informatikai forradalom egyik legnagyobb alakjának.<br><br>A magyar tudósok különösen vonzódtak a repülés tudományához. A levegőt meghódító felfedezéseik évtizedekkel megelőzték korukat. Asbóth Oszkár, Kármán Tódor munkatársaként, a helikopterek történetének kimagasló alakja.<br>Kármán Tódor az első helikopter és a sugárhajtású repülőgépek kifejlesztője. Kutatásai alapján valósulhatott meg a hangsebességet túllépő repülőgép és a rakétatechnika. Fonó Albert a sugárhajtás elvének atyja. A Hoff Miklós által kifejlesztett vékony falú szerkezeteket alkalmazzák ma is világszerte a repülőgépek, űrrakéták, tengeralattjárók építésénél.<br>Csonka János és Bánki Donát nevét mindenkinek ismernie kellene, aki autóba ül. A világon burrogó sok száz millió benzinmotor mind az általuk feltalált porlasztóval működik. Ha vonat robog el melletted, gondolj arra, hogy a világ első villamosított vasútvonalát is magyar mérnök építette, Kandó Kálmán.<br>A mozdonyokat, kocsikat ehhez a villanyvasúthoz a budapesti Ganz gyárban készítették.<br>Mihály Dénes a televíziós közvetítés, a hangosfilm, Goldmark Péter a színes televízió, Csicsátka Antal a sztereó technika feltalálója. Gábor Dénes igazi mérnöki lángelme volt: száz találmányát szabadalmazták. Legjelentősebb felfedezése, a hologram hozta meg számára a fizikai Nobel-díjat. De ő alkotta meg a ma slágernek számító, lapos képernyőjű tévékészüléket is.<br>Harsányi János matematikai képletekkel számította ki, mik a legjobb lépések, ha nem ismerjük pontosan az ellenfél szándékait. Ez a játékelmélet. Országok és a világgazdaság sorsát eldöntő, komoly játék ez, de törvényei hasonlóak a társasjátékéhoz. Hát ilyen „játszva” kapta meg Harsányi János 1994-ben a Nobel-díjat. <br>Rubik Ernő zseniális találmánya, a világot meghódító bűvös kocka nem gyerekjáték. Valójában igen bonyolult matematikai tudást igényel mind az alkotó, mind a játékos részéről.</p>"
+},
+{
+  question: "27. Melyik képen melyik feltalálót látod a találmányával?",
+  type: "map-dragdrop",
+  mapImage: "tal2.jpg", // A feltöltött image_e6aca1.png képedet használd
+  elemek: [
+      { szo: "Neumann János", kat: "gep", top: "8%", left: "7.4%" },      
+      { szo: "Szilárd Leó", kat: "2", top: "10%", left: "57.5%" }, 
+      { szo: "Asbóth Oszkár", kat: "3", top: "58%", left: "7.4%" }, 
+      { szo: "Simonyi Károly", kat: "4", top: "58%", left: "57.5%" } 
+  ],
+  points: 4,
+  leftText: "<h2>Magyar lángelmék a 20. századból</h2><p><br><br>„Neumann, Szilárd, Wigner, mars ki a Városligetbe!” – Ezt nem három vásott kölyöknek mondta a számtantanár, hanem három matekzseninek: Neumann Jánosnak, Szilárd Leónak és Wigner Jenőnek, akik osztálytársak voltak Budapesten a Fasori Gimnáziumban, s oly döbbenetes volt a matematikai tudásuk, hogy dolgozatírás helyett inkább levegőzni küldte őket a tanáruk, hiszen pillanatok alatt megoldották a legnehezebb feladatot is. Később mindhárman világhírűvé váltak.<br>Wigner Jenő, Szilárd Leó és Teller Ede az atomenergia békés célú felhasználását kutatta. Tudásukkal hatalmas erőt szabadítottak ki a palackból. De mindhárman tiltakoztak az ellen, hogy háborús célra, emberek ellen használják az atomenergiát. A maghasadásban nem a pusztító bombát, hanem az energiaforrást keresték. Bár mindannyian megérdemelték volna, közülük csak Wigner Jenő, a világ első reaktormérnöke kapta meg a Nobel-díjat 1963-ban.<br>Neumann János a számítógép atyja, korának egyik legnagyobb lángelméje. Az általa 1943-ban megépített komputer akkora volt, mint egy szoba, de kétségtelenül ez az őse a mára már parányira zsugorodott számítógépeknek. Egy kutatótársa szerint a maga idejében Neumann János volt a világ legokosabb embere.<br>Nemcsak a számítógép megalkotása, hanem fejlesztésének fontos lépései is magyar nevekhez kötődnek: Kemény János a legelterjedtebb programozási nyelv és a világot meghódító e-mail-rendszer megalkotója. Simonyi Károly fejlesztette ki a Word szövegszerkesztő programot, a híres Microsoft cég második embere lett. Gróf Andrást a személyi számítógépek megalkotása miatt tartják az informatikai forradalom egyik legnagyobb alakjának.<br><br>A magyar tudósok különösen vonzódtak a repülés tudományához. A levegőt meghódító felfedezéseik évtizedekkel megelőzték korukat. Asbóth Oszkár, Kármán Tódor munkatársaként, a helikopterek történetének kimagasló alakja.<br>Kármán Tódor az első helikopter és a sugárhajtású repülőgépek kifejlesztője. Kutatásai alapján valósulhatott meg a hangsebességet túllépő repülőgép és a rakétatechnika. Fonó Albert a sugárhajtás elvének atyja. A Hoff Miklós által kifejlesztett vékony falú szerkezeteket alkalmazzák ma is világszerte a repülőgépek, űrrakéták, tengeralattjárók építésénél.<br>Csonka János és Bánki Donát nevét mindenkinek ismernie kellene, aki autóba ül. A világon burrogó sok száz millió benzinmotor mind az általuk feltalált porlasztóval működik. Ha vonat robog el melletted, gondolj arra, hogy a világ első villamosított vasútvonalát is magyar mérnök építette, Kandó Kálmán.<br>A mozdonyokat, kocsikat ehhez a villanyvasúthoz a budapesti Ganz gyárban készítették.<br>Mihály Dénes a televíziós közvetítés, a hangosfilm, Goldmark Péter a színes televízió, Csicsátka Antal a sztereó technika feltalálója. Gábor Dénes igazi mérnöki lángelme volt: száz találmányát szabadalmazták. Legjelentősebb felfedezése, a hologram hozta meg számára a fizikai Nobel-díjat. De ő alkotta meg a ma slágernek számító, lapos képernyőjű tévékészüléket is.<br>Harsányi János matematikai képletekkel számította ki, mik a legjobb lépések, ha nem ismerjük pontosan az ellenfél szándékait. Ez a játékelmélet. Országok és a világgazdaság sorsát eldöntő, komoly játék ez, de törvényei hasonlóak a társasjátékéhoz. Hát ilyen „játszva” kapta meg Harsányi János 1994-ben a Nobel-díjat. <br>Rubik Ernő zseniális találmánya, a világot meghódító bűvös kocka nem gyerekjáték. Valójában igen bonyolult matematikai tudást igényel mind az alkotó, mind a játékos részéről.</p>"
+},
+
+];
+
+let currentQuestion = 0;
+let timeLeft = QUIZ_TIME_LIMIT;
+let timerInterval;
+
+function initQuiz(){
+    buildNavigator();
+    buildQuestions();
+    showQuestion(0);
+    startTimer();
+    if(DEBUG_MODE) setupCoordinateDebugger();
+    quizData.forEach((_, i) => updateStatus(i));
+}
+
+function setupCoordinateDebugger() {
+    document.addEventListener('click', function(e) {
+        const wrapper = e.target.closest('.map-wrapper');
+        if (wrapper) {
+            const rect = wrapper.getBoundingClientRect();
+            const leftP = (((e.clientX - rect.left) / rect.width) * 100).toFixed(1);
+            const topP = (((e.clientY - rect.top) / rect.height) * 100).toFixed(1);
+            console.log(`top: "${topP}%", left: "${leftP}%"`);
+            alert(`top: "${topP}%", left: "${leftP}%"`);
+        }
+    });
+}
+
+function startTimer() {
+    updateTimerDisplay();
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay();
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            finishQuiz(); 
+        }
+    }, 1000);
+}
+
+function updateTimerDisplay() {
+    const min = Math.floor(timeLeft / 60);
+    const sec = timeLeft % 60;
+    document.getElementById("timer-display").innerText = `${min}:${sec < 10 ? '0' : ''}${sec}`;
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+    quizData.forEach((_,i)=>{
+        const span=document.createElement("span"); 
+        span.className="qn"; span.id=`nav-${i}`; span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.2rem; margin-bottom: 20px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    if(q.type === "map-dragdrop"){
+        const layout = document.createElement("div"); layout.className = "map-task-layout";
+        const mapWrap = document.createElement("div"); mapWrap.className = "map-wrapper";
+        mapWrap.innerHTML = `<img src="${q.mapImage}" style="width:100%; display:block;">`;
+        q.elemek.forEach(el => {
+            const zone = document.createElement("div"); zone.className = "map-drop-zone";
+            zone.style.top = el.top; zone.style.left = el.left;
+            zone.dataset.kat = el.kat;
+            zone.ondragover = e => e.preventDefault();
+            zone.ondrop = drop;
+            mapWrap.appendChild(zone);
+        });
+        const source = document.createElement("div"); source.className = "map-side-source";
+        source.id = `source-${i}`;
+        source.ondragover = e => e.preventDefault(); source.ondrop = drop;
+        q.elemek.sort(() => Math.random() - 0.5).forEach((el, ei) => {
+            const card = document.createElement("div"); card.className = "draggable-card";
+            card.id = `q${i}-c${ei}`; card.textContent = el.szo;
+            card.draggable = true; card.dataset.correct = el.kat;
+            card.ondragstart = e => e.dataTransfer.setData("text", e.target.id);
+            source.appendChild(card);
+        });
+        layout.appendChild(mapWrap); layout.appendChild(source); wrap.appendChild(layout);
+    } else if(q.type === "dropdown-multiple-sentences"){
+        let optIndex = 0;
+        q.sentences.forEach(s => {
+            const line = document.createElement("p");
+            s.text.split(" ").forEach((word, wi) => {
+                if(s.blanks.includes(wi)){
+                    const sel = document.createElement("select");
+                    sel.dataset.optIndex = optIndex;
+                    sel.innerHTML = "<option value=''>...</option>" + q.options[optIndex].map((o,oi)=>`<option value="${oi}">${o}</option>`).join("");
+                    sel.onchange = () => updateStatus(i);
+                    line.appendChild(sel); optIndex++;
+                } else { line.appendChild(document.createTextNode(word + " ")); }
+            });
+            wrap.appendChild(line);
+        });
+    } else {
+        const inputType = q.type === "multi" ? "checkbox" : "radio";
+        q.options.forEach((opt,j)=>{
+            const label=document.createElement("label");
+            label.innerHTML=`<input type="${inputType}" name="q${i}" value="${j}"> ${opt}`;
+            label.querySelector("input").onchange = () => updateStatus(i);
+            wrap.appendChild(label);
+        });
+    }
+    return wrap;
+}
+
+function drop(e) {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text");
+    const card = document.getElementById(id);
+    let target = e.target;
+    while(target && !['map-drop-zone', 'map-side-source'].some(c => target.classList.contains(c))) target = target.parentElement;
+    if(target) { 
+        target.appendChild(card); 
+        const qIdx = parseInt(card.id.split('-')[0].substring(1));
+        updateStatus(qIdx); 
+    }
+}
+
+// --- MÓDOSÍTOTT SZÍNEZÉSI LOGIKA ---
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    const q = quizData[i]; 
+    const wrap = document.getElementById(`q${i}`);
+    
+    let filledCount = 0;
+    let totalNeeded = 1;
+
+    if(q.type === "map-dragdrop"){
+        filledCount = wrap.querySelectorAll('.map-drop-zone .draggable-card').length;
+        totalNeeded = q.elemek.length;
+    } else if(q.type === "dropdown-multiple-sentences"){
+        filledCount = [...wrap.querySelectorAll("select")].filter(s => s.value !== "").length;
+        totalNeeded = q.correct.length;
+    } else {
+        filledCount = wrap.querySelector("input:checked") ? 1 : 0;
+        totalNeeded = 1;
+    }
+
+    if (filledCount === 0) {
+        btn.style.backgroundColor = "var(--danger)"; // Semmi sincs kitöltve
+    } else if (filledCount < totalNeeded) {
+        btn.style.backgroundColor = "var(--warning)"; // Elkezdve, de hiányos
+    } else {
+        btn.style.backgroundColor = "var(--success)"; // Minden ki van töltve
+    }
+}
+
+function showQuestion(n){
+    currentQuestion = n;
+    document.querySelectorAll(".question").forEach(d => d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    const q = quizData[n];
+    document.getElementById("left-panel").innerHTML = (q.leftText || "") + (q.leftImage ? `<img src="${q.leftImage}">` : "");
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); prev.className="btn-prev"; prev.textContent="← Előző";
+    prev.onclick=()=>showQuestion(i-1); if(i===0) prev.style.visibility="hidden";
+    const next=document.createElement("button");
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Befejezés és Kiértékelés" : "Következő →";
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function finishQuiz(){
+    clearInterval(timerInterval);
+    let totalScore = 0, maxScore = 0, feedbackHTML = "";
+    quizData.forEach((q, i) => {
+        let questionScore = 0;
+        let qMax = q.points || 1;
+        const wrap = document.getElementById(`q${i}`);
+        if(q.type === "map-dragdrop"){
+            wrap.querySelectorAll(".map-drop-zone .draggable-card").forEach(c => {
+                if(c.parentElement.dataset.kat === c.dataset.correct) questionScore++;
+            });
+        } else if(q.type === "dropdown-multiple-sentences"){
+            wrap.querySelectorAll("select").forEach(s => {
+                if(s.value !== "" && parseInt(s.value) === q.correct[s.dataset.optIndex]) questionScore++;
+            });
+        } else {
+            const sel = wrap.querySelector("input:checked");
+            if(sel && parseInt(sel.value) === q.correct[0]) questionScore = 1;
+        }
+        totalScore += questionScore;
+        maxScore += qMax;
+        let icon = questionScore === qMax ? '✅' : (questionScore > 0 ? '⚠️' : '❌');
+        feedbackHTML += `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between;"><span><strong>${i+1}.:</strong> ${icon}</span><span>${questionScore}/${qMax}</span></div>`;
+    });
+    const percent = Math.round((totalScore / maxScore) * 100);
+    document.getElementById("quiz-container").style.display = "none";
+    document.getElementById("resultPage").style.display = "block";
+    document.getElementById("resultText").innerHTML = `
+        <div style="text-align:center; margin-bottom:30px; padding: 30px; border-radius: 12px; background: #f8fafc; border: 2px solid var(--primary);">
+            <div style="font-size: 6rem; color: var(--primary); font-weight: 900; line-height: 1; margin-bottom: 10px;">${percent}%</div>
+            <div style="font-size: 2rem; color: #64748b; font-weight: bold;">Pontszám: ${totalScore} / ${maxScore} pont</div>
+        </div>
+        <div style="background:#ffffff; border: 1px solid #e5e7eb; border-radius:12px; overflow: hidden;">
+            <div style="padding:15px; background:#f1f5f9; font-weight:bold; border-bottom:1px solid #e5e7eb;">Részletes kiértékelés:</div>
+            ${feedbackHTML}
+        </div>
+    `;
+}
+
+window.onload = initQuiz;
+</script>
+</body>
+</html>
