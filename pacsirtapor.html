@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Szövegértés kompetencia gyakorló feladatok</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background-color: var(--bg-color); color: var(--text-color); }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+    }
+    
+    #quiz-container .left { 
+        width:40%; border-right:2px solid var(--border-color); 
+        padding: 30px; overflow-y:auto; background-color: #fafafa;
+    }
+    
+    #quiz-container .right { 
+        width:60%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden;
+    }
+    
+    .quiz-header { 
+        padding-bottom:15px; border-bottom:1px solid var(--border-color); 
+        margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; 
+    }
+    
+    .quiz-questions { overflow-y:auto; flex-grow:1; padding-right: 10px; }
+    
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { 
+        width:32px; height:32px; line-height:32px; text-align:center; 
+        border-radius:50%; background-color: var(--danger); color:white; 
+        font-weight: bold; cursor:pointer; transition: 0.2s;
+    }
+    
+    .question { display:none; animation: fadeIn 0.3s; }
+    .question.active { display:block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:30px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    
+    button { 
+        padding:12px 24px; border-radius: 8px; border: none; 
+        font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-prev { background-color: #9ca3af; color: white; }
+    
+    #resultPage { display:none; padding:60px; text-align:center; max-width: 800px; margin: 50px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    #left-panel h2 { color: var(--primary); margin-top: 0; }
+    #left-panel img { 
+        width: 100%; max-height: auto; object-fit: contain; 
+        display:block; margin: 20px 0; border-radius: 8px;
+        cursor:zoom-in; border: 1px solid var(--border-color);
+    }
+    
+    label { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    label:hover { background-color: #f8fafc; border-color: var(--primary); }
+    input { margin-right: 12px; width: 18px; height: 18px; cursor: pointer; }
+    select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 1rem; background-color: white; }
+
+    #image-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; }
+    #overlay-img { max-width: 100%; max-height: 90%; border-radius: 8px; cursor: zoom-out; transition: transform 0.3s ease; }
+
+    .dropdown-sentence { margin-bottom: 18px; line-height: 1.8; font-size: 1.1rem; }
+
+    @media (max-width:768px) { 
+        #quiz-container { flex-direction:column; height: auto; margin: 0; border-radius: 0; } 
+        #quiz-container .left, #quiz-container .right { width:100%; height: auto; border-right:none; } 
+    }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>4. osztály</h2>
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <h2 style="margin:0;">Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultHeader">Eredmény</h1>
+  <div id="resultText" style="font-size: 1.1rem; line-height: 1.6; margin: 20px 0; text-align: left;"></div>
+  <button id="restartBtn" class="btn-next">Újrakezdés</button>
+</div>
+
+<div id="image-overlay" onclick="closeOverlay()">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+const quizData = [
+    {
+      question: "1. Melyik hónapban játszódik a történet?",
+      type: "single",
+      options: ["Áprilisban", "Májusban", "Júniusban", "Márciusban"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "2. Kik ülték sorban a háztetőt a májusi vasárnapon?",
+      type: "single",
+      options: ["Rigók", "Szarkák", "Verebek", "Pacsirták"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "3. Ki vállalta el a bíró szerepét a verebek vitájában?",
+      type: "single",
+      options: ["A rigó", "A szarka", "A kuvik", "A gazda"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "4. Miért ócsárolták a verebek a pacsirtát?",
+      type: "single",
+      options: ["Mert ellopta az ennivalójukat", "Mert túl nagy volt a termete", "Mert vasárnap is dolgozott (szántotta az eget)", "Mert elköltözött a faluból"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "5. Milyen tulajdonságokkal illették a pacsirtát az irigy verebek? (Többválasztásos)",
+      type: "multiple",
+      options: ["Nagyravágyó", "Törtető", "Lusta", "Álnok"],
+      correct: [0, 1, 3],
+      points: 2,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "6. Mit tervezett el a szarka a verebekkel közösen?",
+      type: "single",
+      options: ["Hogy elkergetik a rigót", "Hogy leváltják a pacsirtát, és ők fognak énekelni", "Hogy új fészket építenek", "Hogy elutaznak délre"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "7. Mire volt szükség a szarka szerint az énekléshez?",
+      type: "single",
+      options: ["Sok ennivalóra", "Szép tollazatra", "Iskolázott hangra és gyakorlásra", "Hosszú csőrre"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "8. Ki riadt fel az éjjeli váltásból a verebek zajongására?",
+      type: "single",
+      options: ["A bagoly", "A kuvik", "A macska", "A gazda"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "9. Mit gondolt a kuvik a szarkáról?",
+      type: "single",
+      options: ["Hogy ő az erdő legjobb énekese", "Hogy nagy tolvaj és kópé", "Hogy nagyon segítőkész", "Hogy ő a legbölcsebb madár"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "10. Mit tett a kuvik, miután a verebek lehurrogták?",
+      type: "single",
+      options: ["Elrepült a diófára", "Visszabújt a kéménybe", "Ő is gyakorolni kezdett", "Elment a királyhoz"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "11. Mi volt a szarka titkos terve a saját hangjával kapcsolatban?",
+      type: "single",
+      options: ["Sokat akart aludni", "Meleg vizet akart inni", "Szerzett egy tojást, hogy megigya", "Énektanárhoz akart menni"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "12. Milyen tojást talált a szarka a fészekben?",
+      type: "single",
+      options: ["Friss tyúktojást", "Egy kotlós (mű)tojást", "Aranytojást", "Kicsi verébtojást"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "13. Mi történt a szarka hangjával a tojás megivása után?",
+      type: "single",
+      options: ["Gyönyörű lett", "Elment a hangja teljesen", "Még recsegőbb lett", "Olyan lett, mint a pacsirtáé"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "14. Mi történt a verebekkel hétfő reggelre a sok gyakorlástól?",
+      type: "single",
+      options: ["Világhírűek lettek", "Csúnyán berekedtek", "Elfelejtettek repülni", "Mindenki őket hallgatta"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "15. Hogyan fogadták az emberek a szarka hajnali énekét?",
+      type: "single",
+      options: ["Tapsoltak neki", "Kenyeret szórtak neki", "Kövekkel és göröngyökkel dobálták meg", "Csendben hallgatták"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "16. Miért mondta a szarka a tyúkra, hogy buta?",
+      type: "single",
+      options: ["Mert nem tud repülni", "Mert megtojik, és egyből kotkodácsol (elárulja magát)", "Mert nem szereti a szarkát", "Mert nem tud énekelni"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "17. Mit csinált a pacsirta, amíg a többiek ellene pörlekedtek?",
+      type: "single",
+      options: ["A fészkében aludt", "Hallgatózott a kerítésen", "Semmiről sem tudva gyönyörűen énekelt a magasban", "Veszekedett a szarkával"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "18. Igaz vagy hamis: A rigó szívesen lett volna bíró a verebek perében.",
+      type: "single",
+      options: ["Igaz", "Hamis"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "19. Mi a történet egyik fontos tanulsága?",
+      type: "single",
+      options: ["Aki másnak vermet ás, maga esik bele", "Sok lúd disznót győz", "Aki korán kel, aranyat lel", "Mindenki legyen bíró"],
+      correct: [0],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    },
+    {
+      question: "20. Milyen volt a pacsirta éneke a mese végén?",
+      type: "single",
+      options: ["Rikácsoló", "Recsegő", "Gyönyörű", "Halk"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Pacsirtapör</h2><p><br><br>Egy szép májusi vasárnap délelőtt ünneplőbe öltözött verebek ülték sorban a háztetőt. Csiripeltek, pletykáltak, méltatlankodtak, mint ahogyan a padon ülő, ráérő vénasszonyok szoktak. Osztották a semmit, s ha ebből vita támadt, most is, mint rendszerint, lekiabáltak a kerítésen csirregő szarkának, vagy átcsivogtak a diófán füttyögő rigónak, hogy jönne el bírónak.<br><br>A rigó fütyült rájuk, de a szarka, mert szereti a pörpatvart, perüket fölvállalta. Maga elé rendelte a feleket, túlcsörögte a legnagyobb szájú verebet, s azzal máris a szomszéd kerítésen termett. Így szokott véget vetni a pernek. De a szóban forgó vasárnap nagyon megtetszett az ügy a szarkának, s nemhogy csitította volna, de buzdította a pereskedő feleket.<br>A pacsirtát ócsárolták a verebek. Elmondták mindennek, szapulták, csepülték, hogy termetre gyenge, nagyravágyó, álnok, semmibe veszi a lenti világot, s hogy törtető, mert lám csak, ugye, ma vasárnap, s nemhogy pihenne, illően ünnepelne, mint a többiek, ő szántja az eget, és hangicsál.<br>– Zajt csinál, zajt csinál – toldotta meg a szarka. S nyomatékul még koppintott is egyet jobbra, egyet meg balra.<br>– S ha legalább tarka volna, mint a szarka – berzenkedtek tovább a verebek –, vagy volna bár akkora, mint egy veréb.<br>– Derék, derék, amit szóltatok, de most elég, beszéltünk éppen eleget. Tennünk kell valamit, verebek!<br>– De mit, de mit?<br>– Valamit.<br>– Mi az a valami, halljuk – hagyták ott a cserepet, s röppentek a szarka köré az irigy és kíváncsi verebek.<br>– Hát ide figyeljetek, le fogjuk váltani a pacsirtát, mi fogunk énekelni. Ehhez azonban holnap korán kell fölkelni.<br>– Fölkelünk, fölkelünk – fogadkozott a sok veréb.<br>– De ez még nem elég – folytatta a szarka. – Az énekléshez iskolázott hangra van szükség, azért hát tessék gyakorolni. Rajta!<br>Erre a verebek elkezdtek éktelenül csirregni, de olyan éktelenül, hogy az éjjeli váltásban dolgozó kuvik is fölriadt a zajra, kiszólt a kéményből, s miután értesült az egyik verébtől, hogy mi van itt készülőben, úgy vélte: ki minek nem mestere, annak hóhéra, mit hallgatnak arra a kópéra, nagy tolvaj a szarka, kétli, hogy valami rendeset akarna.<br>De a verebek lehurrogták, a kuvik meg látva, hogy hiába beszélne, visszabújt a kéménybe.<br>A verebek meg tovább ricsajoztak. Gyakoroltak, ahogyan a szarka tanácsolta.<br>A szarka meg eközben csörögve, rikácsolva tovaröppent.<br>– Na, ezeket jól elintéztem, reggelre egészen berekednek, én meg addig szerzek egy tojást, azt szépen megiszom, van is egy fészek itt valahol, aztán leéneklem azt a pöttöm pacsirtát az égről. Halljam csak! Aha, most kél föl a tyúk a tojásról, buta egy szerzet, megtojik, s mindjárt kotkodácsol, még a verébnél is butább, butább, butább – csörögte elbizakodva a rabló.<br>De ez egyszer rajtavesztett, mert már üresen találta a fészket, jobban mondva csak egy kotlós tojást lelt benne (azért tette oda a gazda, hogy a tyúkot a fészekre szoktassa). A szarka gyanútlanul kiitta, ettől még recsegőbbre vált az amúgy is repedt hangja.<br>Úgy is történt minden, ahogyan kitervelte, hajnalra kelve a verebek csúnyán berekedtek, azt se tudták mondani: csip-csirip, álltában aludt el mindenik. A szarka viszont nekivágott az égnek, és fölhangzott az ének: csirr-csörr-csörrörő, csö-csöcsörr! De alighogy rákezdett a nótára, kövek, göröngyök repültek utána.<br>– Hess innen, mit csörögsz, átkozott szarkája! – s kicsin múlt, hogy egy kő kupán nem találta.<br>A pacsirta pedig minderről mit sem tudva, fölparittyázta magát a magosba, s gyönyörű énekbe kezdett, ettől aztán az emberek még a rikácsoló szarkáról is megfeledkeztek.<br><br>Kányádi Sándor"
+    }
+];
+
+let currentQuestion = 0;
+
+function initQuiz(){ 
+    buildNavigator(); 
+    buildQuestions(); 
+    showQuestion(0); 
+    // Kezdeti színezés beállítása
+    for(let i=0; i<quizData.length; i++) {
+        updateStatus(i);
+    }
+    document.getElementById("restartBtn").addEventListener("click", () => location.reload());
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const span=document.createElement("span"); 
+        span.className="qn"; 
+        span.id=`nav-${i}`;
+        span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.2rem; margin-bottom: 20px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    if(q.type === "dropdown-multiple-sentences"){
+        let optIndex = 0;
+        q.sentences.forEach(sentence => {
+            const line = document.createElement("div");
+            line.className = "dropdown-sentence";
+            const words = sentence.text.split(" ");
+            words.forEach((word, wi) => {
+                if(sentence.blanks && sentence.blanks.includes(wi)){
+                    const select = document.createElement("select");
+                    select.dataset.optIndex = optIndex;
+                    select.innerHTML = "<option value=''>...</option>";
+                    q.options[optIndex].forEach((opt, oi) => {
+                        const optionElem = document.createElement("option");
+                        optionElem.value = oi;
+                        optionElem.textContent = opt;
+                        select.appendChild(optionElem);
+                    });
+                    select.addEventListener('change', () => updateStatus(i));
+                    line.appendChild(select);
+                    line.appendChild(document.createTextNode(" "));
+                    optIndex++;
+                } else {
+                    line.appendChild(document.createTextNode(word + " "));
+                }
+            });
+            wrap.appendChild(line);
+        });
+    } else if(q.type==="single" || q.type==="multi"){
+        const inputType = q.type === "single" ? "radio" : "checkbox";
+        q.options.forEach((opt,j)=>{
+            const label=document.createElement("label");
+            label.innerHTML=`<input type="${inputType}" name="q${i}" value="${j}"> ${opt}`;
+            label.querySelector("input").addEventListener('change', () => updateStatus(i));
+            wrap.appendChild(label);
+        });
+    }
+    return wrap;
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); 
+    prev.className="btn-prev";
+    prev.textContent="← Előző"; 
+    prev.onclick=()=>showQuestion(i-1); 
+    if(i===0) prev.style.visibility="hidden";
+    
+    const next=document.createElement("button"); 
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Kvíz befejezése" : "Következő →"; 
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function showQuestion(n){
+    currentQuestion=n;
+    document.querySelectorAll(".question").forEach(d=>d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    updateLeftPanel(n);
+    
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function updateLeftPanel(i){
+    const q = quizData[i];
+    const left = document.getElementById("left-panel");
+    left.innerHTML = `<h2>4. osztály</h2>`;
+
+    if(q.leftText){
+        const div = document.createElement("div");
+        div.style.lineHeight = "1.6";
+        div.innerHTML = q.leftText;
+        left.appendChild(div);
+    }
+
+    if(q.leftImage){
+        const img = document.createElement("img");
+        img.src = q.leftImage;
+        img.alt = "Ábra";
+        img.onclick=()=>{ 
+            const overlay = document.getElementById("image-overlay");
+            const overlayImg = document.getElementById("overlay-img");
+            overlayImg.src=img.src; 
+            overlay.style.display="flex"; 
+            setTimeout(() => overlayImg.style.transform = "scale(1)", 10);
+        };
+        left.appendChild(img);
+    }
+}
+
+/**
+ * A navigációs körök színezése a feladat státusza szerint (Piros/Sárga/Zöld)
+ */
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    if(!btn) return;
+    const q = quizData[i];
+    const wrap = document.getElementById(`q${i}`);
+    if(!wrap) return;
+
+    if(q.type === "dropdown-multiple-sentences"){
+        const selects = wrap.querySelectorAll("select");
+        let filled = 0;
+        selects.forEach(s => { if(s.value !== "") filled++; });
+        
+        if(filled === 0) btn.style.backgroundColor = "var(--danger)";
+        else if(filled < selects.length) btn.style.backgroundColor = "var(--warning)";
+        else btn.style.backgroundColor = "var(--success)";
+    } else if(q.type === "single"){
+        const checked = wrap.querySelector("input:checked");
+        btn.style.backgroundColor = checked ? "var(--success)" : "var(--danger)";
+    } else if(q.type === "multi"){
+        const checkedCount = wrap.querySelectorAll("input:checked").length;
+        const requiredCount = q.correct.length; // Elvárt helyes válaszok száma
+        
+        if(checkedCount === 0) {
+            btn.style.backgroundColor = "var(--danger)";
+        } else if(checkedCount < requiredCount) {
+            // Ha van jelölés, de kevesebb, mint amennyi helyes válasz létezik
+            btn.style.backgroundColor = "var(--warning)";
+        } else {
+            // Ha elérte vagy meghaladta az elvárt számot (teljesen kitöltöttnek tekintjük)
+            btn.style.backgroundColor = "var(--success)";
+        }
+    }
+}
+
+function finishQuiz(){
+    let totalScore=0;
+    let maxScore=0;
+    let feedback = "";
+
+    quizData.forEach((q,i)=>{
+        let questionScore=0;
+        let qMax = (q.points || 1);
+        maxScore += qMax;
+        const wrap=document.getElementById(`q${i}`);
+
+        if(q.type==="dropdown-multiple-sentences"){
+            const selects=[...wrap.querySelectorAll("select")];
+            selects.forEach(s=>{
+                const idx=Number(s.dataset.optIndex);
+                if(s.value !== "" && Number(s.value) === q.correct[idx]) questionScore++;
+            });
+        } else if(q.type==="single"){
+            const sel=wrap.querySelector("input:checked");
+            if(sel && Number(sel.value) === q.correct[0]) questionScore=1;
+        } else if(q.type==="multi"){
+            const sel = [...wrap.querySelectorAll(`input:checked`)].map(x=>Number(x.value));
+            const correctSelected = sel.filter(v=>q.correct.includes(v)).length;
+            const incorrectSelected = sel.filter(v=>!q.correct.includes(v)).length;
+            questionScore = correctSelected - incorrectSelected;
+            if(questionScore < 0) questionScore = 0;
+        }
+
+        totalScore += questionScore;
+        feedback += `<div style="padding:12px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+            <span><strong>${i+1}. kérdés:</strong> ${questionScore === qMax ? '✅' : questionScore > 0 ? '⚠️' : '❌'}</span>
+            <span style="font-weight:600;">${questionScore} / ${qMax} pont</span>
+        </div>`;
+    });
+
+    const percent = Math.round((totalScore / maxScore) * 100);
+    let color = percent > 80 ? "var(--success)" : percent > 50 ? "var(--warning)" : "var(--danger)";
+
+    document.getElementById("resultText").innerHTML= `
+        <div style="text-align:center; margin-bottom:30px; padding: 20px; border-radius: 12px; background: #f8fafc;">
+            <div style="font-size: 3.5rem; color: ${color}; font-weight:bold;">${percent}%</div>
+            <div style="font-size: 1.4rem; color: #64748b;">Összpontszám: ${totalScore} / ${maxScore}</div>
+        </div>
+        <div style="background:#ffffff; border: 1px solid #e5e7eb; border-radius:12px; overflow: hidden;">
+            <div style="padding:12px; background:#f1f5f9; font-weight:bold; border-bottom:1px solid #e5e7eb;">Részletes eredmények:</div>
+            ${feedback}
+        </div>
+    `;
+
+    document.getElementById("quiz-container").style.display="none";
+    document.getElementById("resultPage").style.display="block";
+    window.scrollTo(0,0);
+}
+
+function closeOverlay() {
+    const overlay = document.getElementById("image-overlay");
+    const overlayImg = document.getElementById("overlay-img");
+    overlayImg.style.transform = "scale(0.7)";
+    setTimeout(() => overlay.style.display="none", 200);
+}
+
+window.onload = initQuiz;
+</script>
+</body>
+</html>
