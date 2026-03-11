@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Komplex Szövegértés Időzítővel</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background-color: var(--bg-color); color: var(--text-color); }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+    }
+    
+    #quiz-container .left { 
+        width:35%; border-right:2px solid var(--border-color); 
+        padding: 30px; overflow-y:auto; background-color: #fafafa;
+    }
+    
+    #quiz-container .right { 
+        width:65%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden; position: relative;
+    }
+    
+    #timer-display {
+        position: absolute; top: 20px; right: 30px;
+        background: var(--danger); color: white; padding: 8px 15px;
+        border-radius: 20px; font-weight: bold; font-family: monospace; font-size: 1.2rem;
+        box-shadow: var(--shadow); z-index: 100;
+    }
+
+    .quiz-header { 
+        padding-bottom:15px; border-bottom:1px solid var(--border-color); 
+        margin-bottom: 20px; display:flex; flex-direction: column; align-items: flex-start; gap: 10px;
+    }
+    
+    .quiz-questions { overflow-y:auto; flex-grow:1; padding-right: 10px; }
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { 
+        width:32px; height:32px; line-height:32px; text-align:center; 
+        border-radius:50%; background-color: #d1d5db; color:white; 
+        font-weight: bold; cursor:pointer; transition: background-color 0.3s;
+    }
+    
+    .question { display:none; animation: fadeIn 0.3s; }
+    .question.active { display:block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:30px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    
+    button { padding:12px 24px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-prev { background-color: #9ca3af; color: white; }
+
+    .map-task-layout { display: flex; gap: 20px; align-items: flex-start; margin-top: 15px; }
+    .map-wrapper { flex: 3; position: relative; border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; background: white; }
+    .map-side-source { flex: 1; max-height: calc(100vh - 350px); overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: #f1f5f9; border-radius: 8px; }
+    .map-drop-zone { position: absolute; width: 60px; height: 24px; border: 2px dashed var(--primary); background: rgba(255, 255, 255, 0.7); border-radius: 6px; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; z-index: 10; font-size: 0.7rem; }
+    .draggable-card { background: var(--primary); color: white; padding: 6px 10px; border-radius: 6px; cursor: grab; font-size: 0.85rem; font-weight: 500; user-select: none; box-shadow: var(--shadow); text-align: center; }
+    
+    label { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    label:hover { background-color: #f8fafc; }
+    input { margin-right: 12px; width: 18px; height: 18px; }
+    select { padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); margin: 0 4px; }
+
+    #resultPage { display:none; padding:40px; max-width: 900px; margin: 30px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+    #left-panel img { width: 100%; border-radius: 8px; margin-top: 15px; border: 1px solid var(--border-color); }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel"></div>
+  <div class="right">
+    <div id="timer-display">00:00</div>
+    <div class="quiz-header">
+      <h2 style="margin:0;">Szövegértési feladatsor</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 style="text-align:center;">Eredmény</h1>
+  <div id="resultText"></div>
+  <div style="text-align:center; margin-top:30px;">
+      <button onclick="location.reload()" class="btn-next">Újrakezdés</button>
+  </div>
+</div>
+
+<script>
+// --- KONFIGURÁCIÓ ---
+const QUIZ_TIME_LIMIT = 35 * 60; 
+const DEBUG_MODE = true; 
+
+const quizData = [
+  {
+    question: "1. Mi volt a várak építésének elsődleges célja?",
+    type: "single",
+    options: ["Kereskedelmi központ kialakítása", "A védelem", "Turisták fogadása", "Díszes lakóhely építése"],
+    correct: [1],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "2. Melyik épületrész volt a legbiztonságosabb hely a várban?",
+    type: "single",
+    options: ["A várudvar", "A kapu", "Az öregtorony (donjon)", "A gyilokjáró"],
+    correct: [2],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "3. Mi a szerepe a várfal tetején lévő gyilokjárónak?",
+    type: "single",
+    options: ["Itt tartották a lovakat", "Ezen közlekedtek a védők", "Itt főztek a váruraknak", "Ez volt a raktár"],
+    correct: [1],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "4. A várnak mely része NEM a védelmi célt szolgálta?",
+    type: "single",
+    options: ["Vizesárok", "Barbakán", "Konyha", "Szuroköntő nyílás"],
+    correct: [2],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "5. Igaz vagy hamis: A várakat mindig csak hegytetőre építették.",
+    type: "single",
+    options: ["Igaz", "Hamis"],
+    correct: [1],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "6. Mit használtak a várfal tetején a védők takarására?",
+    type: "single",
+    options: ["Függönyöket", "Pártázatot", "Tetőcserepet", "Deszkákat"],
+    correct: [1],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "7. Miért ástak vizesárkot a várfalak köré?",
+    type: "single",
+    options: ["Hogy legyen hol horgászni", "Hogy a katonák fürödjenek", "Hogy ne tudják létrával megközelíteni a falat", "Hogy díszesebb legyen a vár"],
+    correct: [2],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "8. Mi a barbakán feladata?",
+    type: "single",
+    options: ["A kapu védelme", "Az élelmiszer tárolása", "A király szobája", "A kút fedése"],
+    correct: [0],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "9. Milyen anyagokat öntöttek a szuroköntő nyílásokon?",
+    type: "single",
+    options: ["Hideg vizet", "Gabonát", "Forró olajat vagy szurkot", "Homokot"],
+    correct: [2],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "10. Melyik állítás NEM igaz a várudvarra?",
+    type: "single",
+    options: ["Itt képezték ki a katonákat", "Itt dolgoztak a kézművesek", "Itt voltak az állatok istállói", "Ez volt a legmagasabb pont"],
+    correct: [3],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "11. Miért volt kritikus fontosságú a kút a várban?",
+    type: "single",
+    options: ["A mosáshoz kellett", "Ostrom alatt ez biztosította a vizet", "A kert locsolásához", "A dísztó feltöltéséhez"],
+    correct: [1],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "12. Hol lakott a várúr és családja a mindennapokban?",
+    type: "single",
+    options: ["A kaputoronyban", "A palotában", "A bástyán", "A vizesárokban"],
+    correct: [1],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "13. Kik segítettek az ostrom idején a vár védelmében?",
+    type: "single",
+    options: ["Csak a királyi katonák", "Csak a férfiak", "Csak a kovácsok", "Minden lakó, beleértve a nőket is"],
+    correct: [3],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "14. Melyik állítás írja le legjobban a nők szerepét az ostrom alatt?",
+    type: "single",
+    options: [
+      "Csak a palotában maradtak és várták a végét.",
+      "Segítették a védelmet lőszerhordással, ápolással és a fegyverek tisztításával.",
+      "Elhagyták a várat, amint megkezdődött az ostrom.",
+      "Parancsnokként irányították a vár katonáit."
+    ],
+    correct: [1],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+  {
+    question: "15. Mire szolgáltak a lőrések a falon?",
+    type: "single",
+    options: ["Díszítésre", "A támadók észlelésére és visszalövésre", "A szellőzésre", "Kijáratként az ellenségnek"],
+    correct: [1],
+    points: 1,
+leftText: "<h2>A középkori várak és védelmi rendszerük</h2><p><br><br>A középkori várak építésének elsődleges célja a védelem volt. A várúr és családja a legbiztonságosabb helyen, a vár közepén álló, masszív öregtoronyban (más néven donjonban) élt vagy húzódott vissza ostrom idején, míg a mindennapi életüket a kényelmesebb palotában élték.<br><br>A vár legfontosabb védelmi része a várfal volt. Ennek tetején egy folyosót alakítottak ki, a gyilokjárót, ahol a katonák őrséget álltak. A falak tetejét pártázat díszítette, amelynek csipkézett formája elrejtette a védőket az ellenséges nyilak elől. A támadók észlelésére és a visszalövésre a falon lőréseket vágtak.<br><br>A várak kapuja volt a legsebezhetőbb pont. Ezért a kapu elé egy külön védművet, a barbakánt építették, amelyet felvonóhíddal tettek átjárhatatlanná. A várfalak köré mély vizesárkot ástak, ami megakadályozta, hogy az ellenség létrákkal elérje a falakat. A falakból kiugró bástyákról a katonák oldalirányból is lőhették a falakhoz közelítő ellenséget. Ha az ellenség mégis eljutott a fal tövéig, a védők a szuroköntő nyílásokon keresztül forró olajat vagy szurkot zúdítottak rájuk.<br><br>A várudvar a vár élete központja volt. Itt tartották a katonai gyakorlatokat, itt dolgoztak a kézművesek (mint például a kovácsok), és itt helyezték el az állatokat is. Egy hosszú ostrom idején a legfontosabb dolog a kút volt. Mivel a vár nem hagyhatta el a falakat, a mély kút biztosította az ivóvizet a védőknek és az állatoknak. Ha a víz elfogyott, az ostromlottak helyzete kilátástalanná vált. A nők is fontos szerepet vállaltak: a fegyverek tisztításával, a lőszer hordásával és a sérültek ápolásával segítették a védelmet, így a várvédelem a vár minden lakójának közös feladata volt.</p>",
+leftImage: "varreszek.jpg"
+  },
+
+    {
+      question: "16. Hol játszódik a mese?",
+      type: "single",
+      options: ["az udvarban", "a díszteremben", "a réten", "az erdőben"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Mátyás király huszárja</h2><p><br><br>Volt Mátyás királynak egy huszárja a sok közül, akin nem tudott senki kifogni. Büszke is volt rá Mátyás.<br>Egyik alkalommal a Burkus mondja Mátyásnak:<br>– Én bizony túlteszek a te huszárod eszén!<br>– Azt már nem!<br>– Hát fogadjunk!<br>S a két király fél országát tette igazának. Abban egyezkedtek, hogy a huszár megy el a Burkus királyhoz a nagy próbára. Volt egy nagy hiba. Burkus nem tudott magyarul, a huszár meg burkusul. A király ugyancsak törte az eszét, mivel csalja tőrbe a huszárt.<br>Megérkezik a huszár Burkus dísztermébe. Keményen megáll, és várja a következendőket. A király jelekkel értekezik a huszárral. Jobb kezét felemeli, és hüvelykujjával egyet mutat. A huszár ugyancsak válaszol, és kettőt mutat. Erre a király kitárja két karját. A huszár válaszol: felemeli ökölbe szorított kezét. A király felemel egy nagy törvénykönyvet az asztalról, a huszár erre hüvelyéből kivonja a kardját, és négyfelé vág a levegőbe véle.<br>Ezzel megfelelt a király kitűzött három jelére, s győzött a huszár. Tarisznyáját mindjárt arannyal tömték meg, és hazabocsátották egy levéllel, amit Mátyásnak küldtek.<br>Az örömmel olvassa a levelet, melyben Burkus üzeni: Jobb kezemmel mutatok egyet, hogy egy Isten van. Ő kettőt mutat, hogy ne felejtkezzünk meg a Szentháromság másik két személyéről sem. A másik: Tárt karokkal mutatom: de kár, hogy a keresztények szétszórtan élnek. Ő ökölbe szorított kézzel mutatja, hogy összetartsanak. A harmadik: Felmutatom a törvénykönyvet, amelyben az ország minden törvénye foglaltatik.<br>A huszár kivonja kardját, hogy ő karddal képes azt megvédeni.<br>Mosolyog magában Mátyás.<br>– Nem hiszem, hogy ilyen egyre gondoltak ezek!<br>Kérdi a huszárt: hogy volt?<br>– Hát, felséges királyom, testemet-lelkemet kezedbe ajánlom, beérkeztem, és a király mindjárt mutatja ujjával, hogy kinyomja az egyik szemem. Azt már nem. Inkább én neked mind a kettőt, mutatom neki. Majd két kézzel fenyegetődzött, hogy kidob. Erre én ökölbe szorítottam a kezem: gyere csak közelebb, összetörlek! Erre fog a király egy vastag könyvet, hogy hozzám vágja. Én kihúztam a kardomat, hogy négyfelé vágom. Erre a király megijedt, abbahagyta a fenyegetést, és hazaküldött.<br> – Tudtam – felel mosolyogva Mátyás király. <br><br><i>magyar népmese</i></p>"
+    },
+    {
+      question: "17. Hogyan kommunikálnak a szereplők?",
+      type: "single",
+      options: ["magyarul", "jelekkel", "németül", "burkusul","angolul"],
+      correct: [1],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Mátyás király huszárja</h2><p><br><br>Volt Mátyás királynak egy huszárja a sok közül, akin nem tudott senki kifogni. Büszke is volt rá Mátyás.<br>Egyik alkalommal a Burkus mondja Mátyásnak:<br>– Én bizony túlteszek a te huszárod eszén!<br>– Azt már nem!<br>– Hát fogadjunk!<br>S a két király fél országát tette igazának. Abban egyezkedtek, hogy a huszár megy el a Burkus királyhoz a nagy próbára. Volt egy nagy hiba. Burkus nem tudott magyarul, a huszár meg burkusul. A király ugyancsak törte az eszét, mivel csalja tőrbe a huszárt.<br>Megérkezik a huszár Burkus dísztermébe. Keményen megáll, és várja a következendőket. A király jelekkel értekezik a huszárral. Jobb kezét felemeli, és hüvelykujjával egyet mutat. A huszár ugyancsak válaszol, és kettőt mutat. Erre a király kitárja két karját. A huszár válaszol: felemeli ökölbe szorított kezét. A király felemel egy nagy törvénykönyvet az asztalról, a huszár erre hüvelyéből kivonja a kardját, és négyfelé vág a levegőbe véle.<br>Ezzel megfelelt a király kitűzött három jelére, s győzött a huszár. Tarisznyáját mindjárt arannyal tömték meg, és hazabocsátották egy levéllel, amit Mátyásnak küldtek.<br>Az örömmel olvassa a levelet, melyben Burkus üzeni: Jobb kezemmel mutatok egyet, hogy egy Isten van. Ő kettőt mutat, hogy ne felejtkezzünk meg a Szentháromság másik két személyéről sem. A másik: Tárt karokkal mutatom: de kár, hogy a keresztények szétszórtan élnek. Ő ökölbe szorított kézzel mutatja, hogy összetartsanak. A harmadik: Felmutatom a törvénykönyvet, amelyben az ország minden törvénye foglaltatik.<br>A huszár kivonja kardját, hogy ő karddal képes azt megvédeni.<br>Mosolyog magában Mátyás.<br>– Nem hiszem, hogy ilyen egyre gondoltak ezek!<br>Kérdi a huszárt: hogy volt?<br>– Hát, felséges királyom, testemet-lelkemet kezedbe ajánlom, beérkeztem, és a király mindjárt mutatja ujjával, hogy kinyomja az egyik szemem. Azt már nem. Inkább én neked mind a kettőt, mutatom neki. Majd két kézzel fenyegetődzött, hogy kidob. Erre én ökölbe szorítottam a kezem: gyere csak közelebb, összetörlek! Erre fog a király egy vastag könyvet, hogy hozzám vágja. Én kihúztam a kardomat, hogy négyfelé vágom. Erre a király megijedt, abbahagyta a fenyegetést, és hazaküldött.<br> – Tudtam – felel mosolyogva Mátyás király. <br><br><i>magyar népmese</i></p>"
+    },
+    {
+      question: "<p>18. Ki <u>NEM</u> szerepel a mesében? </p>",
+      type: "single",
+      options: ["Mátyás király", "a huszár", "a bíró", "Burkus király"],
+      correct: [2],
+      points: 1,
+      leftImage: "",
+      leftText: "<h2>Mátyás király huszárja</h2><p><br><br>Volt Mátyás királynak egy huszárja a sok közül, akin nem tudott senki kifogni. Büszke is volt rá Mátyás.<br>Egyik alkalommal a Burkus mondja Mátyásnak:<br>– Én bizony túlteszek a te huszárod eszén!<br>– Azt már nem!<br>– Hát fogadjunk!<br>S a két király fél országát tette igazának. Abban egyezkedtek, hogy a huszár megy el a Burkus királyhoz a nagy próbára. Volt egy nagy hiba. Burkus nem tudott magyarul, a huszár meg burkusul. A király ugyancsak törte az eszét, mivel csalja tőrbe a huszárt.<br>Megérkezik a huszár Burkus dísztermébe. Keményen megáll, és várja a következendőket. A király jelekkel értekezik a huszárral. Jobb kezét felemeli, és hüvelykujjával egyet mutat. A huszár ugyancsak válaszol, és kettőt mutat. Erre a király kitárja két karját. A huszár válaszol: felemeli ökölbe szorított kezét. A király felemel egy nagy törvénykönyvet az asztalról, a huszár erre hüvelyéből kivonja a kardját, és négyfelé vág a levegőbe véle.<br>Ezzel megfelelt a király kitűzött három jelére, s győzött a huszár. Tarisznyáját mindjárt arannyal tömték meg, és hazabocsátották egy levéllel, amit Mátyásnak küldtek.<br>Az örömmel olvassa a levelet, melyben Burkus üzeni: Jobb kezemmel mutatok egyet, hogy egy Isten van. Ő kettőt mutat, hogy ne felejtkezzünk meg a Szentháromság másik két személyéről sem. A másik: Tárt karokkal mutatom: de kár, hogy a keresztények szétszórtan élnek. Ő ökölbe szorított kézzel mutatja, hogy összetartsanak. A harmadik: Felmutatom a törvénykönyvet, amelyben az ország minden törvénye foglaltatik.<br>A huszár kivonja kardját, hogy ő karddal képes azt megvédeni.<br>Mosolyog magában Mátyás.<br>– Nem hiszem, hogy ilyen egyre gondoltak ezek!<br>Kérdi a huszárt: hogy volt?<br>– Hát, felséges királyom, testemet-lelkemet kezedbe ajánlom, beérkeztem, és a király mindjárt mutatja ujjával, hogy kinyomja az egyik szemem. Azt már nem. Inkább én neked mind a kettőt, mutatom neki. Majd két kézzel fenyegetődzött, hogy kidob. Erre én ökölbe szorítottam a kezem: gyere csak közelebb, összetörlek! Erre fog a király egy vastag könyvet, hogy hozzám vágja. Én kihúztam a kardomat, hogy négyfelé vágom. Erre a király megijedt, abbahagyta a fenyegetést, és hazaküldött.<br> – Tudtam – felel mosolyogva Mátyás király. <br><br><i>magyar népmese</i></p>"
+    },
+    {
+  question: "19. Melyik szereplőre igaz, ki tette? Válaszd ki a megfelelőt!",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "kitárta két karját: ", blanks: [3] },
+    { text: "büszke volt: ", blanks: [2] },
+    { text: "fenyegetőzött: ", blanks: [1] },
+    { text: "kihúztam a kardomat: ", blanks: [3] },
+    { text: "nem tudott burkusul: ", blanks: [3] },
+    { text: "keményen megállt: ", blanks: [2] },
+    { text: "nem tudott magyarul: ", blanks: [3] },
+    { text: "mosolygott magában: ", blanks: [2] },
+    { text: "ökölbe szorította kezét: ", blanks: [3] },
+    { text: "törte az eszét: ", blanks: [3] }
+  ],
+  options: [
+    ["Mátyás király", "huszár", "Burkus király"],
+    ["Mátyás király", "huszár", "Burkus király"],
+    ["Mátyás király", "huszár", "Burkus király"],
+    ["Mátyás király", "huszár", "Burkus király"],
+    ["Mátyás király", "huszár", "Burkus király"],
+    ["Mátyás király", "huszár", "Burkus király"],
+    ["Mátyás király", "huszár", "Burkus király"],
+    ["Mátyás király", "huszár", "Burkus király"],
+    ["Mátyás király", "huszár", "Burkus király"],
+    ["Mátyás király", "huszár", "Burkus király"]
+  ],
+   correct: [2, 0, 2, 1, 1, 1, 2, 0, 1, 2], 
+  points: 10,
+  leftText: "<h2>Mátyás király huszárja</h2><p><br><br>Volt Mátyás királynak egy huszárja a sok közül, akin nem tudott senki kifogni. Büszke is volt rá Mátyás.<br>Egyik alkalommal a Burkus mondja Mátyásnak:<br>– Én bizony túlteszek a te huszárod eszén!<br>– Azt már nem!<br>– Hát fogadjunk!<br>S a két király fél országát tette igazának. Abban egyezkedtek, hogy a huszár megy el a Burkus királyhoz a nagy próbára. Volt egy nagy hiba. Burkus nem tudott magyarul, a huszár meg burkusul. A király ugyancsak törte az eszét, mivel csalja tőrbe a huszárt.<br>Megérkezik a huszár Burkus dísztermébe. Keményen megáll, és várja a következendőket. A király jelekkel értekezik a huszárral. Jobb kezét felemeli, és hüvelykujjával egyet mutat. A huszár ugyancsak válaszol, és kettőt mutat. Erre a király kitárja két karját. A huszár válaszol: felemeli ökölbe szorított kezét. A király felemel egy nagy törvénykönyvet az asztalról, a huszár erre hüvelyéből kivonja a kardját, és négyfelé vág a levegőbe véle.<br>Ezzel megfelelt a király kitűzött három jelére, s győzött a huszár. Tarisznyáját mindjárt arannyal tömték meg, és hazabocsátották egy levéllel, amit Mátyásnak küldtek.<br>Az örömmel olvassa a levelet, melyben Burkus üzeni: Jobb kezemmel mutatok egyet, hogy egy Isten van. Ő kettőt mutat, hogy ne felejtkezzünk meg a Szentháromság másik két személyéről sem. A másik: Tárt karokkal mutatom: de kár, hogy a keresztények szétszórtan élnek. Ő ökölbe szorított kézzel mutatja, hogy összetartsanak. A harmadik: Felmutatom a törvénykönyvet, amelyben az ország minden törvénye foglaltatik.<br>A huszár kivonja kardját, hogy ő karddal képes azt megvédeni.<br>Mosolyog magában Mátyás.<br>– Nem hiszem, hogy ilyen egyre gondoltak ezek!<br>Kérdi a huszárt: hogy volt?<br>– Hát, felséges királyom, testemet-lelkemet kezedbe ajánlom, beérkeztem, és a király mindjárt mutatja ujjával, hogy kinyomja az egyik szemem. Azt már nem. Inkább én neked mind a kettőt, mutatom neki. Majd két kézzel fenyegetődzött, hogy kidob. Erre én ökölbe szorítottam a kezem: gyere csak közelebb, összetörlek! Erre fog a király egy vastag könyvet, hogy hozzám vágja. Én kihúztam a kardomat, hogy négyfelé vágom. Erre a király megijedt, abbahagyta a fenyegetést, és hazaküldött.<br> – Tudtam – felel mosolyogva Mátyás király. <br><br><i>magyar népmese</i></p>"
+},
+
+{
+      question: "20. Melyik mondatot melyik szereplő mondta? Húzd a szereplő nevét a mondat mellé!",
+      type: "map-dragdrop",
+      mapImage: "matyas1.jpg", 
+      elemek: [
+          { szo: "Burkus király", kat: "1", top: "10%", left: "36.2%" },
+          { szo: "huszár", kat: "2", top: "42.3%", left: "76.8%" },
+          { szo: "Mátyás király", kat: "3", top: "80.1%", left: "88.9%" }
+          
+      ],
+      points: 3,
+      leftText: "<h2>Mátyás király huszárja</h2><p><br><br>Volt Mátyás királynak egy huszárja a sok közül, akin nem tudott senki kifogni. Büszke is volt rá Mátyás.<br>Egyik alkalommal a Burkus mondja Mátyásnak:<br>– Én bizony túlteszek a te huszárod eszén!<br>– Azt már nem!<br>– Hát fogadjunk!<br>S a két király fél országát tette igazának. Abban egyezkedtek, hogy a huszár megy el a Burkus királyhoz a nagy próbára. Volt egy nagy hiba. Burkus nem tudott magyarul, a huszár meg burkusul. A király ugyancsak törte az eszét, mivel csalja tőrbe a huszárt.<br>Megérkezik a huszár Burkus dísztermébe. Keményen megáll, és várja a következendőket. A király jelekkel értekezik a huszárral. Jobb kezét felemeli, és hüvelykujjával egyet mutat. A huszár ugyancsak válaszol, és kettőt mutat. Erre a király kitárja két karját. A huszár válaszol: felemeli ökölbe szorított kezét. A király felemel egy nagy törvénykönyvet az asztalról, a huszár erre hüvelyéből kivonja a kardját, és négyfelé vág a levegőbe véle.<br>Ezzel megfelelt a király kitűzött három jelére, s győzött a huszár. Tarisznyáját mindjárt arannyal tömték meg, és hazabocsátották egy levéllel, amit Mátyásnak küldtek.<br>Az örömmel olvassa a levelet, melyben Burkus üzeni: Jobb kezemmel mutatok egyet, hogy egy Isten van. Ő kettőt mutat, hogy ne felejtkezzünk meg a Szentháromság másik két személyéről sem. A másik: Tárt karokkal mutatom: de kár, hogy a keresztények szétszórtan élnek. Ő ökölbe szorított kézzel mutatja, hogy összetartsanak. A harmadik: Felmutatom a törvénykönyvet, amelyben az ország minden törvénye foglaltatik.<br>A huszár kivonja kardját, hogy ő karddal képes azt megvédeni.<br>Mosolyog magában Mátyás.<br>– Nem hiszem, hogy ilyen egyre gondoltak ezek!<br>Kérdi a huszárt: hogy volt?<br>– Hát, felséges királyom, testemet-lelkemet kezedbe ajánlom, beérkeztem, és a király mindjárt mutatja ujjával, hogy kinyomja az egyik szemem. Azt már nem. Inkább én neked mind a kettőt, mutatom neki. Majd két kézzel fenyegetődzött, hogy kidob. Erre én ökölbe szorítottam a kezem: gyere csak közelebb, összetörlek! Erre fog a király egy vastag könyvet, hogy hozzám vágja. Én kihúztam a kardomat, hogy négyfelé vágom. Erre a király megijedt, abbahagyta a fenyegetést, és hazaküldött.<br> – Tudtam – felel mosolyogva Mátyás király. <br><br><i>magyar népmese</i></p>"
+    },
+{
+  question: "21. Számozással állítsd időrendbe az eseményeket! Húzd a számokat a megfelelő sorrendben a négyzetekbe!",
+  type: "map-dragdrop",
+  mapImage: "matyas2.jpg", // Használd a legutóbb feltöltött kép fájlnevét
+  elemek: [
+    { szo: "1.", kat: "sor3", top: "37.5%", left: "6.3%" }, // Volt Mátyás királynak egy huszárja.
+    { szo: "2.", kat: "sor1", top: "12.5%", left: "6.3%" }, // A két király egyezséget kötött.
+    { szo: "3.", kat: "sor7", top: "90%", left: "6.3%" }, // A huszár elmegy Burkus királyhoz a nagy próbára.
+    { szo: "4.", kat: "sor5", top: "62.5%", left: "6.3%" }, // A király törte az eszét, mivel csalja tőrbe a huszárt.
+    { szo: "5.", kat: "sor6", top: "75%", left: "6.3%" }, // Arannyal tömték meg a huszár tarisznyáját...
+    { szo: "6.", kat: "sor2", top: "25%", left: "6.3%" }, // Mátyás király beszélgetése a huszárral.
+    { szo: "7.", kat: "sor4", top: "50%", left: "6.3%" }  // – Tudtam – felel mosolyogva Mátyás király.
+  ],
+  points: 7,
+  leftText: "<h2>Mátyás király huszárja</h2><p><br><br>Volt Mátyás királynak egy huszárja a sok közül, akin nem tudott senki kifogni. Büszke is volt rá Mátyás.<br>Egyik alkalommal a Burkus mondja Mátyásnak:<br>– Én bizony túlteszek a te huszárod eszén!<br>– Azt már nem!<br>– Hát fogadjunk!<br>S a két király fél országát tette igazának. Abban egyezkedtek, hogy a huszár megy el a Burkus királyhoz a nagy próbára. Volt egy nagy hiba. Burkus nem tudott magyarul, a huszár meg burkusul. A király ugyancsak törte az eszét, mivel csalja tőrbe a huszárt.<br>Megérkezik a huszár Burkus dísztermébe. Keményen megáll, és várja a következendőket. A király jelekkel értekezik a huszárral. Jobb kezét felemeli, és hüvelykujjával egyet mutat. A huszár ugyancsak válaszol, és kettőt mutat. Erre a király kitárja két karját. A huszár válaszol: felemeli ökölbe szorított kezét. A király felemel egy nagy törvénykönyvet az asztalról, a huszár erre hüvelyéből kivonja a kardját, és négyfelé vág a levegőbe véle.<br>Ezzel megfelelt a király kitűzött három jelére, s győzött a huszár. Tarisznyáját mindjárt arannyal tömték meg, és hazabocsátották egy levéllel, amit Mátyásnak küldtek.<br>Az örömmel olvassa a levelet, melyben Burkus üzeni: Jobb kezemmel mutatok egyet, hogy egy Isten van. Ő kettőt mutat, hogy ne felejtkezzünk meg a Szentháromság másik két személyéről sem. A másik: Tárt karokkal mutatom: de kár, hogy a keresztények szétszórtan élnek. Ő ökölbe szorított kézzel mutatja, hogy összetartsanak. A harmadik: Felmutatom a törvénykönyvet, amelyben az ország minden törvénye foglaltatik.<br>A huszár kivonja kardját, hogy ő karddal képes azt megvédeni.<br>Mosolyog magában Mátyás.<br>– Nem hiszem, hogy ilyen egyre gondoltak ezek!<br>Kérdi a huszárt: hogy volt?<br>– Hát, felséges királyom, testemet-lelkemet kezedbe ajánlom, beérkeztem, és a király mindjárt mutatja ujjával, hogy kinyomja az egyik szemem. Azt már nem. Inkább én neked mind a kettőt, mutatom neki. Majd két kézzel fenyegetődzött, hogy kidob. Erre én ökölbe szorítottam a kezem: gyere csak közelebb, összetörlek! Erre fog a király egy vastag könyvet, hogy hozzám vágja. Én kihúztam a kardomat, hogy négyfelé vágom. Erre a király megijedt, abbahagyta a fenyegetést, és hazaküldött.<br> – Tudtam – felel mosolyogva Mátyás király. <br><br><i>magyar népmese</i></p>"
+}, 
+
+{
+  question: "22. Igaz vagy hamis? Válaszd ki a helyes betűt az állítások után!",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "Összegömbölyödve elfér a tenyereden. ", blanks: [4] },
+    { text: "Nagyobb testű a mókusnál. ", blanks: [4] },
+    { text: "Szürke szőre a hátán világosabb. ", blanks: [5] },
+    { text: "Testhosszának a felét a farka teszi ki. ", blanks: [6] }
+  ],
+  options: [
+    ["Igaz", "Hamis"],
+["Igaz", "Hamis"],
+["Igaz", "Hamis"],
+["Igaz", "Hamis"]  ],
+  // Megoldások a szöveg alapján:
+  // 1. Elfér a tenyéren (Igaz - 0)
+  // 2. Kisebb a mókusnál (Hamis - 1)
+  // 3. A hátán sötétebb (Hamis - 1)
+  // 4. A fele a farka (Igaz - 0)
+  correct: [0, 1, 1, 0], 
+  points: 4,
+  leftText: "<h2>A nagy pele</h2><p>A nagy pelét éjszakai mókusnak is nevezik. Hazánkban mindenütt megtalálható. Szívesen él az ember közelében. A parkok, gyümölcsösök, kertek gyakori vendége. Kisebb a mókusnál. Összegömbölyödve elfér a tenyereden. A kis állat hosszának a felét a farka teszi ki. Szürke szőre a hátán sötétebb. Gombszeme fekete, füle kerek. A pele nem nehezebb egy marék diónál. Főleg gyümölcsöket, diót, mogyorót, makkot eszik. Táplálékai között szerepel még a fakéreg, gomba, fiatal hajtások. Ritkán a madarak tojásait is elfogyasztja. A nőstény nyáron hozza világra utódait. Egyszerre 2-9 pelecsemetét fial. Az apróságok vakok és csupaszok. Anyjuk 7 hétig szoptatja őket. Ha veszély fenyegeti a kicsiket, mamájuk a nyakuk bőrénél fogva cipeli másik helyre csemetéit.</p>"
+},
+  {
+  question: "23. Válaszd ki minden ételnél, hogy a nagy pele tápláléka-e!",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "fiatal hajtások: ", blanks: [2] },
+    { text: "gomba: ", blanks: [1] },
+    { text: "makk: ", blanks: [1] },
+    { text: "uborka: ", blanks: [1] },
+    { text: "fű: ", blanks: [1] },
+    { text: "madarak tojásai: ", blanks: [2] },
+    { text: "kukorica: ", blanks: [1] },
+    { text: "gyümölcsök: ", blanks: [1] },
+    { text: "dió: ", blanks: [1] },
+    { text: "mogyoró: ", blanks: [1] },
+    { text: "kenyér: ", blanks: [1] },
+    { text: "fakéreg: ", blanks: [1] }
+  ],
+  options: [
+    ["Igen", "Nem"], ["Igen", "Nem"], ["Igen", "Nem"], ["Igen", "Nem"],
+    ["Igen", "Nem"], ["Igen", "Nem"], ["Igen", "Nem"], ["Igen", "Nem"],
+    ["Igen", "Nem"], ["Igen", "Nem"], ["Igen", "Nem"], ["Igen", "Nem"]
+  ],
+  // 0 = Igen (táplálék), 1 = Nem (nem táplálék)
+  correct: [0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0],
+  points: 12,
+      leftImage: "",
+      leftText: "<h2>A nagy pele</h2><p>A nagy pelét éjszakai mókusnak is nevezik. Hazánkban mindenütt megtalálható. Szívesen él az ember közelében. A parkok, gyümölcsösök, kertek gyakori vendége. Kisebb a mókusnál. Összegömbölyödve elfér a tenyereden. A kis állat hosszának a felét a farka teszi ki. Szürke szőre a hátán sötétebb. Gombszeme fekete, füle kerek. A pele nem nehezebb egy marék diónál. Főleg gyümölcsöket, diót, mogyorót, makkot eszik. Táplálékai között szerepel még a fakéreg, gomba, fiatal hajtások. Ritkán a madarak tojásait is elfogyasztja. A nőstény nyáron hozza világra utódait. Egyszerre 2-9 pelecsemetét fial. Az apróságok vakok és csupaszok. Anyjuk 7 hétig szoptatja őket. Ha veszély fenyegeti a kicsiket, mamájuk a nyakuk bőrénél fogva cipeli másik helyre csemetéit.</p>"
+    },
+    {
+  question: "24. Húzd a megfelelő mondatvéget a kezdéshez!",
+  type: "map-dragdrop",
+  mapImage: "pele1.jpg", // Használd a képet, amin a feladat van
+  elemek: [
+    // Mondatkezdések (fixek a képen) és a hozzájuk tartozó helyes mondatvégek
+    { szo: "vakok és csupaszok.", kat: "m3", top: "61.9%", left: "43.5%" },    // Az apróságok -> vakok és csupaszok.
+    { szo: "7 hétig szoptatja őket.", kat: "m4", top: "88%", left: "43.5%" }, // Anyjuk -> 7 hétig szoptatja őket.
+    { szo: "2-9 pelecsemetét fial.", kat: "m2", top: "38.6%", left: "43.5%" },  // Egyszerre -> 2-9 pelecsemetét fial.
+    { szo: "hozza világra utódait.", kat: "m1", top: "17.3%", left: "43.5%" }   // A nőstény nyáron -> hozza világra utódait.
+  ],
+  // A drop zónák a mondatok eleje mellett (a képen lévő bal oldali szavakhoz igazítva)
+  dropZones: [
+    { id: "m1", top: "19%", left: "40%" }, // A nőstény nyáron
+    { id: "m2", top: "32%", left: "40%" }, // Egyszerre
+    { id: "m3", top: "45%", left: "40%" }, // Az apróságok
+    { id: "m4", top: "58%", left: "40%" }  // Anyjuk
+  ],
+  points: 4,
+  leftText: "<h2>A nagy pele</h2><p>A nagy pelét éjszakai mókusnak is nevezik. Hazánkban mindenütt megtalálható. Szívesen él az ember közelében. A parkok, gyümölcsösök, kertek gyakori vendége. Kisebb a mókusnál. Összegömbölyödve elfér a tenyereden. A kis állat hosszának a felét a farka teszi ki. Szürke szőre a hátán sötétebb. Gombszeme fekete, füle kerek. A pele nem nehezebb egy marék diónál. Főleg gyümölcsöket, diót, mogyorót, makkot eszik. Táplálékai között szerepel még a fakéreg, gomba, fiatal hajtások. Ritkán a madarak tojásait is elfogyasztja. A nőstény nyáron hozza világra utódait. Egyszerre 2-9 pelecsemetét fial. Az apróságok vakok és csupaszok. Anyjuk 7 hétig szoptatja őket. Ha veszély fenyegeti a kicsiket, mamájuk a nyakuk bőrénél fogva cipeli másik helyre csemetéit.</p>"
+},
+    {
+  question: "25. A nagy pele jellemzése. Húzd a sorszámokat a megfelelő állítás mellé!",
+  type: "map-dragdrop",
+  mapImage: "pele2.jpg", // Használd a képet, ami a mondatokat tartalmazza
+  elemek: [
+    // Sorszámok (amiket a diákok húznak)
+    { szo: "1.", kat: "sor7", top: "91.2%", left: "9%" }, // Éjszakai mókusnak is nevezik.
+    { szo: "2.", kat: "sor3", top: "37%", left: "9%" }, // A parkok, gyümölcsösök, kertek gyakori vendége.
+    { szo: "4.", kat: "sor5", top: "64.5%", left: "9%" }, // A pele nem nehezebb egy marék diónál.
+    { szo: "5.", kat: "sor6", top: "77.8%", left: "9%" }, // Főleg gyümölcsöket, diót, mogyorót, makkot eszik.
+    { szo: "6.", kat: "sor2", top: "24.4%", left: "9%" }, // Ritkán a madarak tojásait is elfogyasztja.
+    { szo: "3.", kat: "sor4", top: "50.7%", left: "9%" }, // Gombszeme fekete, füle kerek.
+    { szo: "7.", kat: "sor1", top: "11%", left: "9%" }  // Mamájuk a nyakuk bőrénél fogva cipeli másik helyre csemetéit.
+  ],
+  // A drop zónák (ahová a számokat húzni kell a képen)
+  dropZones: [
+    { id: "sor7", top: "11%", left: "9%" },
+    { id: "sor6", top: "24.4%", left: "9%" },
+    { id: "sor2", top: "37%", left: "9%" },
+    { id: "sor3", top: "50.7%", left: "9%" },
+    { id: "sor4", top: "64.5%", left: "9%" },
+    { id: "sor5", top: "77.8%", left: "9%" },
+    { id: "sor1", top: "91.2%", left: "9%" }
+  ],
+  points: 7,
+  leftText: "<h2>A nagy pele</h2><p>A nagy pelét éjszakai mókusnak is nevezik. Hazánkban mindenütt megtalálható. Szívesen él az ember közelében. A parkok, gyümölcsösök, kertek gyakori vendége. Kisebb a mókusnál. Összegömbölyödve elfér a tenyereden. A kis állat hosszának a felét a farka teszi ki. Szürke szőre a hátán sötétebb. Gombszeme fekete, füle kerek. A pele nem nehezebb egy marék diónál. Főleg gyümölcsöket, diót, mogyorót, makkot eszik. Táplálékai között szerepel még a fakéreg, gomba, fiatal hajtások. Ritkán a madarak tojásait is elfogyasztja. A nőstény nyáron hozza világra utódait. Egyszerre 2-9 pelecsemetét fial. Az apróságok vakok és csupaszok. Anyjuk 7 hétig szoptatja őket. Ha veszély fenyegeti a kicsiket, mamájuk a nyakuk bőrénél fogva cipeli másik helyre csemetéit.</p>"
+},
+    
+];
+
+let currentQuestion = 0;
+let timeLeft = QUIZ_TIME_LIMIT;
+let timerInterval;
+
+function initQuiz(){
+    buildNavigator();
+    buildQuestions();
+    showQuestion(0);
+    startTimer();
+    if(DEBUG_MODE) setupCoordinateDebugger();
+    quizData.forEach((_, i) => updateStatus(i));
+}
+
+function setupCoordinateDebugger() {
+    document.addEventListener('click', function(e) {
+        const wrapper = e.target.closest('.map-wrapper');
+        if (wrapper) {
+            const rect = wrapper.getBoundingClientRect();
+            const leftP = (((e.clientX - rect.left) / rect.width) * 100).toFixed(1);
+            const topP = (((e.clientY - rect.top) / rect.height) * 100).toFixed(1);
+            console.log(`top: "${topP}%", left: "${leftP}%"`);
+            alert(`top: "${topP}%", left: "${leftP}%"`);
+        }
+    });
+}
+
+function startTimer() {
+    updateTimerDisplay();
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay();
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            finishQuiz(); 
+        }
+    }, 1000);
+}
+
+function updateTimerDisplay() {
+    const min = Math.floor(timeLeft / 60);
+    const sec = timeLeft % 60;
+    document.getElementById("timer-display").innerText = `${min}:${sec < 10 ? '0' : ''}${sec}`;
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+    quizData.forEach((_,i)=>{
+        const span=document.createElement("span"); 
+        span.className="qn"; span.id=`nav-${i}`; span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.2rem; margin-bottom: 20px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    if(q.type === "map-dragdrop"){
+        const layout = document.createElement("div"); layout.className = "map-task-layout";
+        const mapWrap = document.createElement("div"); mapWrap.className = "map-wrapper";
+        mapWrap.innerHTML = `<img src="${q.mapImage}" style="width:100%; display:block;">`;
+        q.elemek.forEach(el => {
+            const zone = document.createElement("div"); zone.className = "map-drop-zone";
+            zone.style.top = el.top; zone.style.left = el.left;
+            zone.dataset.kat = el.kat;
+            zone.ondragover = e => e.preventDefault();
+            zone.ondrop = drop;
+            mapWrap.appendChild(zone);
+        });
+        const source = document.createElement("div"); source.className = "map-side-source";
+        source.id = `source-${i}`;
+        source.ondragover = e => e.preventDefault(); source.ondrop = drop;
+        q.elemek.sort(() => Math.random() - 0.5).forEach((el, ei) => {
+            const card = document.createElement("div"); card.className = "draggable-card";
+            card.id = `q${i}-c${ei}`; card.textContent = el.szo;
+            card.draggable = true; card.dataset.correct = el.kat;
+            card.ondragstart = e => e.dataTransfer.setData("text", e.target.id);
+            source.appendChild(card);
+        });
+        layout.appendChild(mapWrap); layout.appendChild(source); wrap.appendChild(layout);
+    } else if(q.type === "dropdown-multiple-sentences"){
+        let optIndex = 0;
+        q.sentences.forEach(s => {
+            const line = document.createElement("p");
+            s.text.split(" ").forEach((word, wi) => {
+                if(s.blanks.includes(wi)){
+                    const sel = document.createElement("select");
+                    sel.dataset.optIndex = optIndex;
+                    sel.innerHTML = "<option value=''>...</option>" + q.options[optIndex].map((o,oi)=>`<option value="${oi}">${o}</option>`).join("");
+                    sel.onchange = () => updateStatus(i);
+                    line.appendChild(sel); optIndex++;
+                } else { line.appendChild(document.createTextNode(word + " ")); }
+            });
+            wrap.appendChild(line);
+        });
+    } else {
+        const inputType = q.type === "multi" ? "checkbox" : "radio";
+        q.options.forEach((opt,j)=>{
+            const label=document.createElement("label");
+            label.innerHTML=`<input type="${inputType}" name="q${i}" value="${j}"> ${opt}`;
+            label.querySelector("input").onchange = () => updateStatus(i);
+            wrap.appendChild(label);
+        });
+    }
+    return wrap;
+}
+
+function drop(e) {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text");
+    const card = document.getElementById(id);
+    let target = e.target;
+    while(target && !['map-drop-zone', 'map-side-source'].some(c => target.classList.contains(c))) target = target.parentElement;
+    if(target) { 
+        target.appendChild(card); 
+        const qIdx = parseInt(card.id.split('-')[0].substring(1));
+        updateStatus(qIdx); 
+    }
+}
+
+// --- MÓDOSÍTOTT SZÍNEZÉSI LOGIKA ---
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    const q = quizData[i]; 
+    const wrap = document.getElementById(`q${i}`);
+    
+    let filledCount = 0;
+    let totalNeeded = 1;
+
+    if(q.type === "map-dragdrop"){
+        filledCount = wrap.querySelectorAll('.map-drop-zone .draggable-card').length;
+        totalNeeded = q.elemek.length;
+    } else if(q.type === "dropdown-multiple-sentences"){
+        filledCount = [...wrap.querySelectorAll("select")].filter(s => s.value !== "").length;
+        totalNeeded = q.correct.length;
+    } else {
+        filledCount = wrap.querySelector("input:checked") ? 1 : 0;
+        totalNeeded = 1;
+    }
+
+    if (filledCount === 0) {
+        btn.style.backgroundColor = "var(--danger)"; // Semmi sincs kitöltve
+    } else if (filledCount < totalNeeded) {
+        btn.style.backgroundColor = "var(--warning)"; // Elkezdve, de hiányos
+    } else {
+        btn.style.backgroundColor = "var(--success)"; // Minden ki van töltve
+    }
+}
+
+function showQuestion(n){
+    currentQuestion = n;
+    document.querySelectorAll(".question").forEach(d => d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    const q = quizData[n];
+    document.getElementById("left-panel").innerHTML = (q.leftText || "") + (q.leftImage ? `<img src="${q.leftImage}">` : "");
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); prev.className="btn-prev"; prev.textContent="← Előző";
+    prev.onclick=()=>showQuestion(i-1); if(i===0) prev.style.visibility="hidden";
+    const next=document.createElement("button");
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Befejezés és Kiértékelés" : "Következő →";
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function finishQuiz(){
+    clearInterval(timerInterval);
+    let totalScore = 0, maxScore = 0, feedbackHTML = "";
+    quizData.forEach((q, i) => {
+        let questionScore = 0;
+        let qMax = q.points || 1;
+        const wrap = document.getElementById(`q${i}`);
+        if(q.type === "map-dragdrop"){
+            wrap.querySelectorAll(".map-drop-zone .draggable-card").forEach(c => {
+                if(c.parentElement.dataset.kat === c.dataset.correct) questionScore++;
+            });
+        } else if(q.type === "dropdown-multiple-sentences"){
+            wrap.querySelectorAll("select").forEach(s => {
+                if(s.value !== "" && parseInt(s.value) === q.correct[s.dataset.optIndex]) questionScore++;
+            });
+        } else {
+            const sel = wrap.querySelector("input:checked");
+            if(sel && parseInt(sel.value) === q.correct[0]) questionScore = 1;
+        }
+        totalScore += questionScore;
+        maxScore += qMax;
+        let icon = questionScore === qMax ? '✅' : (questionScore > 0 ? '⚠️' : '❌');
+        feedbackHTML += `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between;"><span><strong>${i+1}.:</strong> ${icon}</span><span>${questionScore}/${qMax}</span></div>`;
+    });
+    const percent = Math.round((totalScore / maxScore) * 100);
+    document.getElementById("quiz-container").style.display = "none";
+    document.getElementById("resultPage").style.display = "block";
+    document.getElementById("resultText").innerHTML = `
+        <div style="text-align:center; margin-bottom:30px; padding: 30px; border-radius: 12px; background: #f8fafc; border: 2px solid var(--primary);">
+            <div style="font-size: 6rem; color: var(--primary); font-weight: 900; line-height: 1; margin-bottom: 10px;">${percent}%</div>
+            <div style="font-size: 2rem; color: #64748b; font-weight: bold;">Pontszám: ${totalScore} / ${maxScore} pont</div>
+        </div>
+        <div style="background:#ffffff; border: 1px solid #e5e7eb; border-radius:12px; overflow: hidden;">
+            <div style="padding:15px; background:#f1f5f9; font-weight:bold; border-bottom:1px solid #e5e7eb;">Részletes kiértékelés:</div>
+            ${feedbackHTML}
+        </div>
+    `;
+}
+
+window.onload = initQuiz;
+</script>
+</body>
+
+</html>
