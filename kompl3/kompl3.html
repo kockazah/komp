@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Szövegértés feladatok</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background-color: var(--bg-color); color: var(--text-color); }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+    }
+    
+    #quiz-container .left { 
+        width:40%; border-right:2px solid var(--border-color); 
+        padding: 30px; overflow-y:auto; background-color: #fafafa;
+    }
+    
+    #quiz-container .right { 
+        width:60%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden;
+    }
+    
+    .quiz-header { 
+        padding-bottom:15px; border-bottom:1px solid var(--border-color); 
+        margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; 
+    }
+    
+    .quiz-questions { overflow-y:auto; flex-grow:1; padding-right: 10px; }
+    
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { 
+        width:32px; height:32px; line-height:32px; text-align:center; 
+        border-radius:50%; background-color: var(--danger); color:white; 
+        font-weight: bold; cursor:pointer; transition: 0.2s;
+    }
+    
+    .question { display:none; animation: fadeIn 0.3s; }
+    .question.active { display:block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:30px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    
+    button { 
+        padding:12px 24px; border-radius: 8px; border: none; 
+        font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-prev { background-color: #9ca3af; color: white; }
+    
+    #resultPage { display:none; padding:60px; text-align:center; max-width: 800px; margin: 50px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    #left-panel h2 { color: var(--primary); margin-top: 0; }
+    #left-panel img { 
+        width: 100%; max-height: auto; object-fit: contain; 
+        display:block; margin: 20px 0; border-radius: 8px;
+        cursor:zoom-in; border: 1px solid var(--border-color);
+    }
+    
+    label { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    label:hover { background-color: #f8fafc; border-color: var(--primary); }
+    input { margin-right: 12px; width: 18px; height: 18px; cursor: pointer; }
+    select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 1rem; background-color: white; }
+
+    #image-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; }
+    #overlay-img { max-width: 100%; max-height: 90%; border-radius: 8px; cursor: zoom-out; transition: transform 0.3s ease; }
+
+    .dropdown-sentence { margin-bottom: 18px; line-height: 1.8; font-size: 1.1rem; }
+
+    @media (max-width:768px) { 
+        #quiz-container { flex-direction:column; height: auto; margin: 0; border-radius: 0; } 
+        #quiz-container .left, #quiz-container .right { width:100%; height: auto; border-right:none; } 
+    }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>4. osztály</h2>
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <h2 style="margin:0;">Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultHeader">Eredmény</h1>
+  <div id="resultText" style="font-size: 1.1rem; line-height: 1.6; margin: 20px 0; text-align: left;"></div>
+  <button id="restartBtn" class="btn-next">Újrakezdés</button>
+</div>
+
+<div id="image-overlay" onclick="closeOverlay()">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+const quizData = [
+// --- FŰSZERPAPRIKA FELADATSOR ---
+{
+  question: "1. Honnan származik eredetileg a paprika?",
+  type: "single",
+  options: ["Ázsiából", "Közép- és Dél-Amerikából", "Törökországból", "Európából"],
+  correct: [1],
+  points: 1,
+  leftImage: "paprika.jpg",
+  leftText: "<h2>A magyar lángnyelv – A fűszerpaprika kalandos története</h2><p><br><br>Sokan azt gondolják, hogy a paprika ősidők óta a magyar konyha legalapvetőbb eleme, pedig ez a növény hihetetlen utat járt be, amíg a gulyásleves legfontosabb összetevője lett. A fűszerpaprika története nem csupán a főzésről, hanem felfedezésekről, háborúkról és egy világraszóló tudományos sikerről is szól.<br><br><h3>Az ismeretlen Újvilágból Európába</h3><br>A paprika eredetileg Közép- és Dél-Amerika trópusi vidékein őshonos. Az indiánok már évezredekkel ezelőtt ismerték, termesztették és nemcsak ételízesítésre, hanem gyógyításra is használták. Európa számára Kolumbusz Kristóf fedezte fel a növényt az 1490-es évek végén. Amikor Kolumbusz partra szállt az ismeretlen földrészen, eredetileg a drága feketeborsot kereste. Bár borsot nem talált, rábukkant erre a csípős termésre, amit „indián borsnak” nevezett el, és spanyol hajókon hozott át az ókontinenre.<br><br>A spanyolok eleinte bizalmatlanok voltak az új növénnyel: leginkább kolostorkertekben nevelték dísznövényként az élénkvörös színe miatt, vagy gyógyszerként alkalmazták emésztési panaszokra és a „hideglelés” (mai nevén malária) ellen.<br><br><h3>Törökbors a kastélykertekben</h3><br>Magyarországra a 16. században, a török hódoltság idején jutott el a növény. A törökök közvetítésével került hozzánk, ezért is hívták évszázadokon át „törökborsnak”. Érdekesség, hogy az első írásos emlékek szerint a magyar főurak kastélyaiban is csak a kert ékessége volt. Szépsége miatt kedvelték, és a néphit úgy tartotta, hogy a ház falára akasztott füzérek távol tartják a rontást és a gonosz szellemeket.<br><br>A paraszti konyhákban csak jóval később, a 18. század végén vált népszerűvé. Ebben az időben a napóleoni háborúk miatt a tengeri kereskedelem akadozott, így a távoli országokból érkező feketebors méregdrágává vált. A magyar gazdák ekkor jöttek rá, hogy a saját kertjükben megtermelt, kiszárított és porrá tört paprika kiválóan helyettesíti a drága import fűszert.<br><br><h3>Szeged és Kalocsa: A paprika fővárosai</h3><br>A magyar fűszerpaprika igazi világhíre a 19. században kezdődött el. Két olyan vidék alakult ki az országban, ahol a talaj és a napsütéses órák magas száma a legalkalmasabb volt a termesztésre: Szeged és Kalocsa.<br><br>A termesztés és feldolgozás nehéz fizikai munka volt. A paprikát kézzel szedték, majd hosszú füzérekbe fűzve a házak eresze alatt szárították a napon. Amikor a termés kopogósra száradt, következett a porítás. Kezdetben lábbal hajtott mozsarakban, úgynevezett „külükben” zúzták össze, később azonban megjelentek a modern gőzmalmok, amelyek finom, selymes port állítottak elő.<br><br>Fontos tudni, hogy régen minden paprika csípős volt. A mai konyhákban kedvelt „nemesédes” (vagyis egyáltalán nem csípős) változatot csak az 1920-as években, tudatos nemesítéssel hozták létre a kutatók, kivonva a növényből a csípősséget okozó anyagot, a kapszaicint.<br><br><h3>A vacsora, amely Nobel-díjat ért</h3><br>A magyar tudománytörténet egyik legizgalmasabb fejezete is a paprikához kötődik. Szent-Györgyi Albert, a szegedi egyetem professzora az 1930-as években a titokzatos C-vitamint kutatta, de nem talált olyan növényt, amiből elegendő mennyiséget tudott volna kivonni a kísérleteihez.<br><br>A legenda szerint egy este a felesége paprikasalátát tálalt neki vacsorára. A professzornak éppen nem volt kedve megenni az ételt, de hogy ne bántsa meg a feleségét, azt hazudta, hogy sürgősen be kell vinnie a laboratóriumba megvizsgálni. Ott, azon az éjszakán fedezte fel, hogy a paprika valóságos „vitaminbomba”: hatalmas mennyiségben tartalmaz C-vitamint. Emiatt a felfedezés miatt kapott Szent-Györgyi Albert 1937-ben orvosi Nobel-díjat, amely azóta is az egyetlen olyan magyar Nobel-díj, amelyet hazai kutatómunkáért ítéltek oda.<br><br><h3>Hungarikum a konyhában</h3><br>Ma a magyar fűszerpaprika hivatalos hungarikum. Ez azt jelenti, hogy a magyar kultúra és gasztronómia elválaszthatatlan és védett kincse. Legyen szó halászléről, pörköltről vagy paprikás krumpliról, az a különleges, mélyvörös szín és illat teszi világszerte felismerhetővé a magyar ételeket, amit ez a messziről jött, de nálunk otthonra lelt növény ad nekünk.</p>"
+},
+{
+  question: "2. Milyen célra használták a spanyolok a paprikát kezdetben? (Két helyes válasz)",
+  type: "multi",
+  options: ["Gulyásleves ízesítésére", "Dísznövényként a kertekben", "Gyógyszerként betegségek ellen", "Kizárólag kereskedelmi fizetőeszközként"],
+  correct: [1,2],
+  points: 2,
+  leftImage: "paprika.jpg",
+  leftText: "<h2>A magyar lángnyelv – A fűszerpaprika kalandos története</h2><p><br><br>Sokan azt gondolják, hogy a paprika ősidők óta a magyar konyha legalapvetőbb eleme, pedig ez a növény hihetetlen utat járt be, amíg a gulyásleves legfontosabb összetevője lett. A fűszerpaprika története nem csupán a főzésről, hanem felfedezésekről, háborúkról és egy világraszóló tudományos sikerről is szól.<br><br><h3>Az ismeretlen Újvilágból Európába</h3><br>A paprika eredetileg Közép- és Dél-Amerika trópusi vidékein őshonos. Az indiánok már évezredekkel ezelőtt ismerték, termesztették és nemcsak ételízesítésre, hanem gyógyításra is használták. Európa számára Kolumbusz Kristóf fedezte fel a növényt az 1490-es évek végén. Amikor Kolumbusz partra szállt az ismeretlen földrészen, eredetileg a drága feketeborsot kereste. Bár borsot nem talált, rábukkant erre a csípős termésre, amit „indián borsnak” nevezett el, és spanyol hajókon hozott át az ókontinenre.<br><br>A spanyolok eleinte bizalmatlanok voltak az új növénnyel: leginkább kolostorkertekben nevelték dísznövényként az élénkvörös színe miatt, vagy gyógyszerként alkalmazták emésztési panaszokra és a „hideglelés” (mai nevén malária) ellen.<br><br><h3>Törökbors a kastélykertekben</h3><br>Magyarországra a 16. században, a török hódoltság idején jutott el a növény. A törökök közvetítésével került hozzánk, ezért is hívták évszázadokon át „törökborsnak”. Érdekesség, hogy az első írásos emlékek szerint a magyar főurak kastélyaiban is csak a kert ékessége volt. Szépsége miatt kedvelték, és a néphit úgy tartotta, hogy a ház falára akasztott füzérek távol tartják a rontást és a gonosz szellemeket.<br><br>A paraszti konyhákban csak jóval később, a 18. század végén vált népszerűvé. Ebben az időben a napóleoni háborúk miatt a tengeri kereskedelem akadozott, így a távoli országokból érkező feketebors méregdrágává vált. A magyar gazdák ekkor jöttek rá, hogy a saját kertjükben megtermelt, kiszárított és porrá tört paprika kiválóan helyettesíti a drága import fűszert.<br><br><h3>Szeged és Kalocsa: A paprika fővárosai</h3><br>A magyar fűszerpaprika igazi világhíre a 19. században kezdődött el. Két olyan vidék alakult ki az országban, ahol a talaj és a napsütéses órák magas száma a legalkalmasabb volt a termesztésre: Szeged és Kalocsa.<br><br>A termesztés és feldolgozás nehéz fizikai munka volt. A paprikát kézzel szedték, majd hosszú füzérekbe fűzve a házak eresze alatt szárították a napon. Amikor a termés kopogósra száradt, következett a porítás. Kezdetben lábbal hajtott mozsarakban, úgynevezett „külükben” zúzták össze, később azonban megjelentek a modern gőzmalmok, amelyek finom, selymes port állítottak elő.<br><br>Fontos tudni, hogy régen minden paprika csípős volt. A mai konyhákban kedvelt „nemesédes” (vagyis egyáltalán nem csípős) változatot csak az 1920-as években, tudatos nemesítéssel hozták létre a kutatók, kivonva a növényből a csípősséget okozó anyagot, a kapszaicint.<br><br><h3>A vacsora, amely Nobel-díjat ért</h3><br>A magyar tudománytörténet egyik legizgalmasabb fejezete is a paprikához kötődik. Szent-Györgyi Albert, a szegedi egyetem professzora az 1930-as években a titokzatos C-vitamint kutatta, de nem talált olyan növényt, amiből elegendő mennyiséget tudott volna kivonni a kísérleteihez.<br><br>A legenda szerint egy este a felesége paprikasalátát tálalt neki vacsorára. A professzornak éppen nem volt kedve megenni az ételt, de hogy ne bántsa meg a feleségét, azt hazudta, hogy sürgősen be kell vinnie a laboratóriumba megvizsgálni. Ott, azon az éjszakán fedezte fel, hogy a paprika valóságos „vitaminbomba”: hatalmas mennyiségben tartalmaz C-vitamint. Emiatt a felfedezés miatt kapott Szent-Györgyi Albert 1937-ben orvosi Nobel-díjat, amely azóta is az egyetlen olyan magyar Nobel-díj, amelyet hazai kutatómunkáért ítéltek oda.<br><br><h3>Hungarikum a konyhában</h3><br>Ma a magyar fűszerpaprika hivatalos hungarikum. Ez azt jelenti, hogy a magyar kultúra és gasztronómia elválaszthatatlan és védett kincse. Legyen szó halászléről, pörköltről vagy paprikás krumpliról, az a különleges, mélyvörös szín és illat teszi világszerte felismerhetővé a magyar ételeket, amit ez a messziről jött, de nálunk otthonra lelt növény ad nekünk.</p>"
+},
+{
+  question: "3. Miért nevezték a magyarok évszázadokon át „törökborsnak”?",
+  type: "single",
+  options: ["Mert olyan drága volt, mint a bors", "Mert a török hódoltság idején, az ő közvetítésükkel került hozzánk", "Mert Törökországban fedezték fel először", "Mert csak a törökök tudták termeszteni"],
+  correct: [1],
+  points: 1,
+  leftImage: "paprika.jpg",
+  leftText: "<h2>A magyar lángnyelv – A fűszerpaprika kalandos története</h2><p><br><br>Sokan azt gondolják, hogy a paprika ősidők óta a magyar konyha legalapvetőbb eleme, pedig ez a növény hihetetlen utat járt be, amíg a gulyásleves legfontosabb összetevője lett. A fűszerpaprika története nem csupán a főzésről, hanem felfedezésekről, háborúkról és egy világraszóló tudományos sikerről is szól.<br><br><h3>Az ismeretlen Újvilágból Európába</h3><br>A paprika eredetileg Közép- és Dél-Amerika trópusi vidékein őshonos. Az indiánok már évezredekkel ezelőtt ismerték, termesztették és nemcsak ételízesítésre, hanem gyógyításra is használták. Európa számára Kolumbusz Kristóf fedezte fel a növényt az 1490-es évek végén. Amikor Kolumbusz partra szállt az ismeretlen földrészen, eredetileg a drága feketeborsot kereste. Bár borsot nem talált, rábukkant erre a csípős termésre, amit „indián borsnak” nevezett el, és spanyol hajókon hozott át az ókontinenre.<br><br>A spanyolok eleinte bizalmatlanok voltak az új növénnyel: leginkább kolostorkertekben nevelték dísznövényként az élénkvörös színe miatt, vagy gyógyszerként alkalmazták emésztési panaszokra és a „hideglelés” (mai nevén malária) ellen.<br><br><h3>Törökbors a kastélykertekben</h3><br>Magyarországra a 16. században, a török hódoltság idején jutott el a növény. A törökök közvetítésével került hozzánk, ezért is hívták évszázadokon át „törökborsnak”. Érdekesség, hogy az első írásos emlékek szerint a magyar főurak kastélyaiban is csak a kert ékessége volt. Szépsége miatt kedvelték, és a néphit úgy tartotta, hogy a ház falára akasztott füzérek távol tartják a rontást és a gonosz szellemeket.<br><br>A paraszti konyhákban csak jóval később, a 18. század végén vált népszerűvé. Ebben az időben a napóleoni háborúk miatt a tengeri kereskedelem akadozott, így a távoli országokból érkező feketebors méregdrágává vált. A magyar gazdák ekkor jöttek rá, hogy a saját kertjükben megtermelt, kiszárított és porrá tört paprika kiválóan helyettesíti a drága import fűszert.<br><br><h3>Szeged és Kalocsa: A paprika fővárosai</h3><br>A magyar fűszerpaprika igazi világhíre a 19. században kezdődött el. Két olyan vidék alakult ki az országban, ahol a talaj és a napsütéses órák magas száma a legalkalmasabb volt a termesztésre: Szeged és Kalocsa.<br><br>A termesztés és feldolgozás nehéz fizikai munka volt. A paprikát kézzel szedték, majd hosszú füzérekbe fűzve a házak eresze alatt szárították a napon. Amikor a termés kopogósra száradt, következett a porítás. Kezdetben lábbal hajtott mozsarakban, úgynevezett „külükben” zúzták össze, később azonban megjelentek a modern gőzmalmok, amelyek finom, selymes port állítottak elő.<br><br>Fontos tudni, hogy régen minden paprika csípős volt. A mai konyhákban kedvelt „nemesédes” (vagyis egyáltalán nem csípős) változatot csak az 1920-as években, tudatos nemesítéssel hozták létre a kutatók, kivonva a növényből a csípősséget okozó anyagot, a kapszaicint.<br><br><h3>A vacsora, amely Nobel-díjat ért</h3><br>A magyar tudománytörténet egyik legizgalmasabb fejezete is a paprikához kötődik. Szent-Györgyi Albert, a szegedi egyetem professzora az 1930-as években a titokzatos C-vitamint kutatta, de nem talált olyan növényt, amiből elegendő mennyiséget tudott volna kivonni a kísérleteihez.<br><br>A legenda szerint egy este a felesége paprikasalátát tálalt neki vacsorára. A professzornak éppen nem volt kedve megenni az ételt, de hogy ne bántsa meg a feleségét, azt hazudta, hogy sürgősen be kell vinnie a laboratóriumba megvizsgálni. Ott, azon az éjszakán fedezte fel, hogy a paprika valóságos „vitaminbomba”: hatalmas mennyiségben tartalmaz C-vitamint. Emiatt a felfedezés miatt kapott Szent-Györgyi Albert 1937-ben orvosi Nobel-díjat, amely azóta is az egyetlen olyan magyar Nobel-díj, amelyet hazai kutatómunkáért ítéltek oda.<br><br><h3>Hungarikum a konyhában</h3><br>Ma a magyar fűszerpaprika hivatalos hungarikum. Ez azt jelenti, hogy a magyar kultúra és gasztronómia elválaszthatatlan és védett kincse. Legyen szó halászléről, pörköltről vagy paprikás krumpliról, az a különleges, mélyvörös szín és illat teszi világszerte felismerhetővé a magyar ételeket, amit ez a messziről jött, de nálunk otthonra lelt növény ad nekünk.</p>"
+},
+{
+  question: "4. Mi volt a néphit szerint a ház falára akasztott paprikák feladata?",
+  type: "single",
+  options: ["Jelezte, hogy van eladó fűszer", "Segítette a gyorsabb száradást", "Távol tartotta a rontást és a gonosz szellemeket", "Azt mutatta, hogy gazdag a család"],
+  correct: [2],
+  points: 1,
+  leftImage: "paprika.jpg",
+  leftText: "<h2>A magyar lángnyelv – A fűszerpaprika kalandos története</h2><p><br><br>Sokan azt gondolják, hogy a paprika ősidők óta a magyar konyha legalapvetőbb eleme, pedig ez a növény hihetetlen utat járt be, amíg a gulyásleves legfontosabb összetevője lett. A fűszerpaprika története nem csupán a főzésről, hanem felfedezésekről, háborúkról és egy világraszóló tudományos sikerről is szól.<br><br><h3>Az ismeretlen Újvilágból Európába</h3><br>A paprika eredetileg Közép- és Dél-Amerika trópusi vidékein őshonos. Az indiánok már évezredekkel ezelőtt ismerték, termesztették és nemcsak ételízesítésre, hanem gyógyításra is használták. Európa számára Kolumbusz Kristóf fedezte fel a növényt az 1490-es évek végén. Amikor Kolumbusz partra szállt az ismeretlen földrészen, eredetileg a drága feketeborsot kereste. Bár borsot nem talált, rábukkant erre a csípős termésre, amit „indián borsnak” nevezett el, és spanyol hajókon hozott át az ókontinenre.<br><br>A spanyolok eleinte bizalmatlanok voltak az új növénnyel: leginkább kolostorkertekben nevelték dísznövényként az élénkvörös színe miatt, vagy gyógyszerként alkalmazták emésztési panaszokra és a „hideglelés” (mai nevén malária) ellen.<br><br><h3>Törökbors a kastélykertekben</h3><br>Magyarországra a 16. században, a török hódoltság idején jutott el a növény. A törökök közvetítésével került hozzánk, ezért is hívták évszázadokon át „törökborsnak”. Érdekesség, hogy az első írásos emlékek szerint a magyar főurak kastélyaiban is csak a kert ékessége volt. Szépsége miatt kedvelték, és a néphit úgy tartotta, hogy a ház falára akasztott füzérek távol tartják a rontást és a gonosz szellemeket.<br><br>A paraszti konyhákban csak jóval később, a 18. század végén vált népszerűvé. Ebben az időben a napóleoni háborúk miatt a tengeri kereskedelem akadozott, így a távoli országokból érkező feketebors méregdrágává vált. A magyar gazdák ekkor jöttek rá, hogy a saját kertjükben megtermelt, kiszárított és porrá tört paprika kiválóan helyettesíti a drága import fűszert.<br><br><h3>Szeged és Kalocsa: A paprika fővárosai</h3><br>A magyar fűszerpaprika igazi világhíre a 19. században kezdődött el. Két olyan vidék alakult ki az országban, ahol a talaj és a napsütéses órák magas száma a legalkalmasabb volt a termesztésre: Szeged és Kalocsa.<br><br>A termesztés és feldolgozás nehéz fizikai munka volt. A paprikát kézzel szedték, majd hosszú füzérekbe fűzve a házak eresze alatt szárították a napon. Amikor a termés kopogósra száradt, következett a porítás. Kezdetben lábbal hajtott mozsarakban, úgynevezett „külükben” zúzták össze, később azonban megjelentek a modern gőzmalmok, amelyek finom, selymes port állítottak elő.<br><br>Fontos tudni, hogy régen minden paprika csípős volt. A mai konyhákban kedvelt „nemesédes” (vagyis egyáltalán nem csípős) változatot csak az 1920-as években, tudatos nemesítéssel hozták létre a kutatók, kivonva a növényből a csípősséget okozó anyagot, a kapszaicint.<br><br><h3>A vacsora, amely Nobel-díjat ért</h3><br>A magyar tudománytörténet egyik legizgalmasabb fejezete is a paprikához kötődik. Szent-Györgyi Albert, a szegedi egyetem professzora az 1930-as években a titokzatos C-vitamint kutatta, de nem talált olyan növényt, amiből elegendő mennyiséget tudott volna kivonni a kísérleteihez.<br><br>A legenda szerint egy este a felesége paprikasalátát tálalt neki vacsorára. A professzornak éppen nem volt kedve megenni az ételt, de hogy ne bántsa meg a feleségét, azt hazudta, hogy sürgősen be kell vinnie a laboratóriumba megvizsgálni. Ott, azon az éjszakán fedezte fel, hogy a paprika valóságos „vitaminbomba”: hatalmas mennyiségben tartalmaz C-vitamint. Emiatt a felfedezés miatt kapott Szent-Györgyi Albert 1937-ben orvosi Nobel-díjat, amely azóta is az egyetlen olyan magyar Nobel-díj, amelyet hazai kutatómunkáért ítéltek oda.<br><br><h3>Hungarikum a konyhában</h3><br>Ma a magyar fűszerpaprika hivatalos hungarikum. Ez azt jelenti, hogy a magyar kultúra és gasztronómia elválaszthatatlan és védett kincse. Legyen szó halászléről, pörköltről vagy paprikás krumpliról, az a különleges, mélyvörös szín és illat teszi világszerte felismerhetővé a magyar ételeket, amit ez a messziről jött, de nálunk otthonra lelt növény ad nekünk.</p>"
+},
+{
+  question: "5. Miért vált népszerűvé a paprika a paraszti konyhákban a 18. század végén?",
+  type: "single",
+  options: ["Mert megunták a sót", "Mert a feketebors méregdrágává vált", "Mert akkoriban tilos volt a bors használata", "Mert rájöttek, hogy egészséges"],
+  correct: [1],
+  points: 1,
+  leftImage: "paprika.jpg",
+  leftText: "<h2>A magyar lángnyelv – A fűszerpaprika kalandos története</h2><p><br><br>Sokan azt gondolják, hogy a paprika ősidők óta a magyar konyha legalapvetőbb eleme, pedig ez a növény hihetetlen utat járt be, amíg a gulyásleves legfontosabb összetevője lett. A fűszerpaprika története nem csupán a főzésről, hanem felfedezésekről, háborúkról és egy világraszóló tudományos sikerről is szól.<br><br><h3>Az ismeretlen Újvilágból Európába</h3><br>A paprika eredetileg Közép- és Dél-Amerika trópusi vidékein őshonos. Az indiánok már évezredekkel ezelőtt ismerték, termesztették és nemcsak ételízesítésre, hanem gyógyításra is használták. Európa számára Kolumbusz Kristóf fedezte fel a növényt az 1490-es évek végén. Amikor Kolumbusz partra szállt az ismeretlen földrészen, eredetileg a drága feketeborsot kereste. Bár borsot nem talált, rábukkant erre a csípős termésre, amit „indián borsnak” nevezett el, és spanyol hajókon hozott át az ókontinenre.<br><br>A spanyolok eleinte bizalmatlanok voltak az új növénnyel: leginkább kolostorkertekben nevelték dísznövényként az élénkvörös színe miatt, vagy gyógyszerként alkalmazták emésztési panaszokra és a „hideglelés” (mai nevén malária) ellen.<br><br><h3>Törökbors a kastélykertekben</h3><br>Magyarországra a 16. században, a török hódoltság idején jutott el a növény. A törökök közvetítésével került hozzánk, ezért is hívták évszázadokon át „törökborsnak”. Érdekesség, hogy az első írásos emlékek szerint a magyar főurak kastélyaiban is csak a kert ékessége volt. Szépsége miatt kedvelték, és a néphit úgy tartotta, hogy a ház falára akasztott füzérek távol tartják a rontást és a gonosz szellemeket.<br><br>A paraszti konyhákban csak jóval később, a 18. század végén vált népszerűvé. Ebben az időben a napóleoni háborúk miatt a tengeri kereskedelem akadozott, így a távoli országokból érkező feketebors méregdrágává vált. A magyar gazdák ekkor jöttek rá, hogy a saját kertjükben megtermelt, kiszárított és porrá tört paprika kiválóan helyettesíti a drága import fűszert.<br><br><h3>Szeged és Kalocsa: A paprika fővárosai</h3><br>A magyar fűszerpaprika igazi világhíre a 19. században kezdődött el. Két olyan vidék alakult ki az országban, ahol a talaj és a napsütéses órák magas száma a legalkalmasabb volt a termesztésre: Szeged és Kalocsa.<br><br>A termesztés és feldolgozás nehéz fizikai munka volt. A paprikát kézzel szedték, majd hosszú füzérekbe fűzve a házak eresze alatt szárították a napon. Amikor a termés kopogósra száradt, következett a porítás. Kezdetben lábbal hajtott mozsarakban, úgynevezett „külükben” zúzták össze, később azonban megjelentek a modern gőzmalmok, amelyek finom, selymes port állítottak elő.<br><br>Fontos tudni, hogy régen minden paprika csípős volt. A mai konyhákban kedvelt „nemesédes” (vagyis egyáltalán nem csípős) változatot csak az 1920-as években, tudatos nemesítéssel hozták létre a kutatók, kivonva a növényből a csípősséget okozó anyagot, a kapszaicint.<br><br><h3>A vacsora, amely Nobel-díjat ért</h3><br>A magyar tudománytörténet egyik legizgalmasabb fejezete is a paprikához kötődik. Szent-Györgyi Albert, a szegedi egyetem professzora az 1930-as években a titokzatos C-vitamint kutatta, de nem talált olyan növényt, amiből elegendő mennyiséget tudott volna kivonni a kísérleteihez.<br><br>A legenda szerint egy este a felesége paprikasalátát tálalt neki vacsorára. A professzornak éppen nem volt kedve megenni az ételt, de hogy ne bántsa meg a feleségét, azt hazudta, hogy sürgősen be kell vinnie a laboratóriumba megvizsgálni. Ott, azon az éjszakán fedezte fel, hogy a paprika valóságos „vitaminbomba”: hatalmas mennyiségben tartalmaz C-vitamint. Emiatt a felfedezés miatt kapott Szent-Györgyi Albert 1937-ben orvosi Nobel-díjat, amely azóta is az egyetlen olyan magyar Nobel-díj, amelyet hazai kutatómunkáért ítéltek oda.<br><br><h3>Hungarikum a konyhában</h3><br>Ma a magyar fűszerpaprika hivatalos hungarikum. Ez azt jelenti, hogy a magyar kultúra és gasztronómia elválaszthatatlan és védett kincse. Legyen szó halászléről, pörköltről vagy paprikás krumpliról, az a különleges, mélyvörös szín és illat teszi világszerte felismerhetővé a magyar ételeket, amit ez a messziről jött, de nálunk otthonra lelt növény ad nekünk.</p>"
+},
+{
+  question: "6. Melyik két magyar város vált a fűszerpaprika termesztésének központjává?",
+  type: "single",
+  options: ["Budapest és Debrecen", "Szeged és Kalocsa", "Pécs és Sopron", "Eger és Tokaj"],
+  correct: [1],
+  points: 1,
+  leftImage: "paprika.jpg",
+  leftText: "<h2>A magyar lángnyelv – A fűszerpaprika kalandos története</h2><p><br><br>Sokan azt gondolják, hogy a paprika ősidők óta a magyar konyha legalapvetőbb eleme, pedig ez a növény hihetetlen utat járt be, amíg a gulyásleves legfontosabb összetevője lett. A fűszerpaprika története nem csupán a főzésről, hanem felfedezésekről, háborúkról és egy világraszóló tudományos sikerről is szól.<br><br><h3>Az ismeretlen Újvilágból Európába</h3><br>A paprika eredetileg Közép- és Dél-Amerika trópusi vidékein őshonos. Az indiánok már évezredekkel ezelőtt ismerték, termesztették és nemcsak ételízesítésre, hanem gyógyításra is használták. Európa számára Kolumbusz Kristóf fedezte fel a növényt az 1490-es évek végén. Amikor Kolumbusz partra szállt az ismeretlen földrészen, eredetileg a drága feketeborsot kereste. Bár borsot nem talált, rábukkant erre a csípős termésre, amit „indián borsnak” nevezett el, és spanyol hajókon hozott át az ókontinenre.<br><br>A spanyolok eleinte bizalmatlanok voltak az új növénnyel: leginkább kolostorkertekben nevelték dísznövényként az élénkvörös színe miatt, vagy gyógyszerként alkalmazták emésztési panaszokra és a „hideglelés” (mai nevén malária) ellen.<br><br><h3>Törökbors a kastélykertekben</h3><br>Magyarországra a 16. században, a török hódoltság idején jutott el a növény. A törökök közvetítésével került hozzánk, ezért is hívták évszázadokon át „törökborsnak”. Érdekesség, hogy az első írásos emlékek szerint a magyar főurak kastélyaiban is csak a kert ékessége volt. Szépsége miatt kedvelték, és a néphit úgy tartotta, hogy a ház falára akasztott füzérek távol tartják a rontást és a gonosz szellemeket.<br><br>A paraszti konyhákban csak jóval később, a 18. század végén vált népszerűvé. Ebben az időben a napóleoni háborúk miatt a tengeri kereskedelem akadozott, így a távoli országokból érkező feketebors méregdrágává vált. A magyar gazdák ekkor jöttek rá, hogy a saját kertjükben megtermelt, kiszárított és porrá tört paprika kiválóan helyettesíti a drága import fűszert.<br><br><h3>Szeged és Kalocsa: A paprika fővárosai</h3><br>A magyar fűszerpaprika igazi világhíre a 19. században kezdődött el. Két olyan vidék alakult ki az országban, ahol a talaj és a napsütéses órák magas száma a legalkalmasabb volt a termesztésre: Szeged és Kalocsa.<br><br>A termesztés és feldolgozás nehéz fizikai munka volt. A paprikát kézzel szedték, majd hosszú füzérekbe fűzve a házak eresze alatt szárították a napon. Amikor a termés kopogósra száradt, következett a porítás. Kezdetben lábbal hajtott mozsarakban, úgynevezett „külükben” zúzták össze, később azonban megjelentek a modern gőzmalmok, amelyek finom, selymes port állítottak elő.<br><br>Fontos tudni, hogy régen minden paprika csípős volt. A mai konyhákban kedvelt „nemesédes” (vagyis egyáltalán nem csípős) változatot csak az 1920-as években, tudatos nemesítéssel hozták létre a kutatók, kivonva a növényből a csípősséget okozó anyagot, a kapszaicint.<br><br><h3>A vacsora, amely Nobel-díjat ért</h3><br>A magyar tudománytörténet egyik legizgalmasabb fejezete is a paprikához kötődik. Szent-Györgyi Albert, a szegedi egyetem professzora az 1930-as években a titokzatos C-vitamint kutatta, de nem talált olyan növényt, amiből elegendő mennyiséget tudott volna kivonni a kísérleteihez.<br><br>A legenda szerint egy este a felesége paprikasalátát tálalt neki vacsorára. A professzornak éppen nem volt kedve megenni az ételt, de hogy ne bántsa meg a feleségét, azt hazudta, hogy sürgősen be kell vinnie a laboratóriumba megvizsgálni. Ott, azon az éjszakán fedezte fel, hogy a paprika valóságos „vitaminbomba”: hatalmas mennyiségben tartalmaz C-vitamint. Emiatt a felfedezés miatt kapott Szent-Györgyi Albert 1937-ben orvosi Nobel-díjat, amely azóta is az egyetlen olyan magyar Nobel-díj, amelyet hazai kutatómunkáért ítéltek oda.<br><br><h3>Hungarikum a konyhában</h3><br>Ma a magyar fűszerpaprika hivatalos hungarikum. Ez azt jelenti, hogy a magyar kultúra és gasztronómia elválaszthatatlan és védett kincse. Legyen szó halászléről, pörköltről vagy paprikás krumpliról, az a különleges, mélyvörös szín és illat teszi világszerte felismerhetővé a magyar ételeket, amit ez a messziről jött, de nálunk otthonra lelt növény ad nekünk.</p>"
+},
+{
+  question: "7. Hogyan készítették el régen a finom paprikaport?",
+  type: "single",
+  options: ["Kézzel morzsolták össze", "Folyami kövekkel zúzták szét", "Lábbal hajtott mozsarakban (külükben) zúzták össze", "A napon hagyták, amíg magától elporladt"],
+  correct: [2],
+  points: 1,
+  leftImage: "paprika.jpg",
+  leftText: "<h2>A magyar lángnyelv – A fűszerpaprika kalandos története</h2><p><br><br>Sokan azt gondolják, hogy a paprika ősidők óta a magyar konyha legalapvetőbb eleme, pedig ez a növény hihetetlen utat járt be, amíg a gulyásleves legfontosabb összetevője lett. A fűszerpaprika története nem csupán a főzésről, hanem felfedezésekről, háborúkról és egy világraszóló tudományos sikerről is szól.<br><br><h3>Az ismeretlen Újvilágból Európába</h3><br>A paprika eredetileg Közép- és Dél-Amerika trópusi vidékein őshonos. Az indiánok már évezredekkel ezelőtt ismerték, termesztették és nemcsak ételízesítésre, hanem gyógyításra is használták. Európa számára Kolumbusz Kristóf fedezte fel a növényt az 1490-es évek végén. Amikor Kolumbusz partra szállt az ismeretlen földrészen, eredetileg a drága feketeborsot kereste. Bár borsot nem talált, rábukkant erre a csípős termésre, amit „indián borsnak” nevezett el, és spanyol hajókon hozott át az ókontinenre.<br><br>A spanyolok eleinte bizalmatlanok voltak az új növénnyel: leginkább kolostorkertekben nevelték dísznövényként az élénkvörös színe miatt, vagy gyógyszerként alkalmazták emésztési panaszokra és a „hideglelés” (mai nevén malária) ellen.<br><br><h3>Törökbors a kastélykertekben</h3><br>Magyarországra a 16. században, a török hódoltság idején jutott el a növény. A törökök közvetítésével került hozzánk, ezért is hívták évszázadokon át „törökborsnak”. Érdekesség, hogy az első írásos emlékek szerint a magyar főurak kastélyaiban is csak a kert ékessége volt. Szépsége miatt kedvelték, és a néphit úgy tartotta, hogy a ház falára akasztott füzérek távol tartják a rontást és a gonosz szellemeket.<br><br>A paraszti konyhákban csak jóval később, a 18. század végén vált népszerűvé. Ebben az időben a napóleoni háborúk miatt a tengeri kereskedelem akadozott, így a távoli országokból érkező feketebors méregdrágává vált. A magyar gazdák ekkor jöttek rá, hogy a saját kertjükben megtermelt, kiszárított és porrá tört paprika kiválóan helyettesíti a drága import fűszert.<br><br><h3>Szeged és Kalocsa: A paprika fővárosai</h3><br>A magyar fűszerpaprika igazi világhíre a 19. században kezdődött el. Két olyan vidék alakult ki az országban, ahol a talaj és a napsütéses órák magas száma a legalkalmasabb volt a termesztésre: Szeged és Kalocsa.<br><br>A termesztés és feldolgozás nehéz fizikai munka volt. A paprikát kézzel szedték, majd hosszú füzérekbe fűzve a házak eresze alatt szárították a napon. Amikor a termés kopogósra száradt, következett a porítás. Kezdetben lábbal hajtott mozsarakban, úgynevezett „külükben” zúzták össze, később azonban megjelentek a modern gőzmalmok, amelyek finom, selymes port állítottak elő.<br><br>Fontos tudni, hogy régen minden paprika csípős volt. A mai konyhákban kedvelt „nemesédes” (vagyis egyáltalán nem csípős) változatot csak az 1920-as években, tudatos nemesítéssel hozták létre a kutatók, kivonva a növényből a csípősséget okozó anyagot, a kapszaicint.<br><br><h3>A vacsora, amely Nobel-díjat ért</h3><br>A magyar tudománytörténet egyik legizgalmasabb fejezete is a paprikához kötődik. Szent-Györgyi Albert, a szegedi egyetem professzora az 1930-as években a titokzatos C-vitamint kutatta, de nem talált olyan növényt, amiből elegendő mennyiséget tudott volna kivonni a kísérleteihez.<br><br>A legenda szerint egy este a felesége paprikasalátát tálalt neki vacsorára. A professzornak éppen nem volt kedve megenni az ételt, de hogy ne bántsa meg a feleségét, azt hazudta, hogy sürgősen be kell vinnie a laboratóriumba megvizsgálni. Ott, azon az éjszakán fedezte fel, hogy a paprika valóságos „vitaminbomba”: hatalmas mennyiségben tartalmaz C-vitamint. Emiatt a felfedezés miatt kapott Szent-Györgyi Albert 1937-ben orvosi Nobel-díjat, amely azóta is az egyetlen olyan magyar Nobel-díj, amelyet hazai kutatómunkáért ítéltek oda.<br><br><h3>Hungarikum a konyhában</h3><br>Ma a magyar fűszerpaprika hivatalos hungarikum. Ez azt jelenti, hogy a magyar kultúra és gasztronómia elválaszthatatlan és védett kincse. Legyen szó halászléről, pörköltről vagy paprikás krumpliról, az a különleges, mélyvörös szín és illat teszi világszerte felismerhetővé a magyar ételeket, amit ez a messziről jött, de nálunk otthonra lelt növény ad nekünk.</p>"
+},
+{
+  question: "8. Igaz vagy Hamis állítások a paprikáról",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "Régen minden paprika csípős volt. ", blanks: [5] },
+    { text: "A nemesédes paprikát az 1920-as években nemesítették. ", blanks: [7] },
+    { text: "A paprika csípősségét a kapszaicin okozza. ", blanks: [5] }
+  ],
+  options: [
+    ["Igaz", "Hamis"],
+    ["Igaz", "Hamis"],
+    ["Igaz", "Hamis"]
+  ],
+  correct: [0, 0, 0],
+  points: 3,
+  leftImage: "paprika.jpg",
+  leftText: "<h2>A magyar lángnyelv – A fűszerpaprika kalandos története</h2><p><br><br>Sokan azt gondolják, hogy a paprika ősidők óta a magyar konyha legalapvetőbb eleme, pedig ez a növény hihetetlen utat járt be, amíg a gulyásleves legfontosabb összetevője lett. A fűszerpaprika története nem csupán a főzésről, hanem felfedezésekről, háborúkról és egy világraszóló tudományos sikerről is szól.<br><br><h3>Az ismeretlen Újvilágból Európába</h3><br>A paprika eredetileg Közép- és Dél-Amerika trópusi vidékein őshonos. Az indiánok már évezredekkel ezelőtt ismerték, termesztették és nemcsak ételízesítésre, hanem gyógyításra is használták. Európa számára Kolumbusz Kristóf fedezte fel a növényt az 1490-es évek végén. Amikor Kolumbusz partra szállt az ismeretlen földrészen, eredetileg a drága feketeborsot kereste. Bár borsot nem talált, rábukkant erre a csípős termésre, amit „indián borsnak” nevezett el, és spanyol hajókon hozott át az ókontinenre.<br><br>A spanyolok eleinte bizalmatlanok voltak az új növénnyel: leginkább kolostorkertekben nevelték dísznövényként az élénkvörös színe miatt, vagy gyógyszerként alkalmazták emésztési panaszokra és a „hideglelés” (mai nevén malária) ellen.<br><br><h3>Törökbors a kastélykertekben</h3><br>Magyarországra a 16. században, a török hódoltság idején jutott el a növény. A törökök közvetítésével került hozzánk, ezért is hívták évszázadokon át „törökborsnak”. Érdekesség, hogy az első írásos emlékek szerint a magyar főurak kastélyaiban is csak a kert ékessége volt. Szépsége miatt kedvelték, és a néphit úgy tartotta, hogy a ház falára akasztott füzérek távol tartják a rontást és a gonosz szellemeket.<br><br>A paraszti konyhákban csak jóval később, a 18. század végén vált népszerűvé. Ebben az időben a napóleoni háborúk miatt a tengeri kereskedelem akadozott, így a távoli országokból érkező feketebors méregdrágává vált. A magyar gazdák ekkor jöttek rá, hogy a saját kertjükben megtermelt, kiszárított és porrá tört paprika kiválóan helyettesíti a drága import fűszert.<br><br><h3>Szeged és Kalocsa: A paprika fővárosai</h3><br>A magyar fűszerpaprika igazi világhíre a 19. században kezdődött el. Két olyan vidék alakult ki az országban, ahol a talaj és a napsütéses órák magas száma a legalkalmasabb volt a termesztésre: Szeged és Kalocsa.<br><br>A termesztés és feldolgozás nehéz fizikai munka volt. A paprikát kézzel szedték, majd hosszú füzérekbe fűzve a házak eresze alatt szárították a napon. Amikor a termés kopogósra száradt, következett a porítás. Kezdetben lábbal hajtott mozsarakban, úgynevezett „külükben” zúzták össze, később azonban megjelentek a modern gőzmalmok, amelyek finom, selymes port állítottak elő.<br><br>Fontos tudni, hogy régen minden paprika csípős volt. A mai konyhákban kedvelt „nemesédes” (vagyis egyáltalán nem csípős) változatot csak az 1920-as években, tudatos nemesítéssel hozták létre a kutatók, kivonva a növényből a csípősséget okozó anyagot, a kapszaicint.<br><br><h3>A vacsora, amely Nobel-díjat ért</h3><br>A magyar tudománytörténet egyik legizgalmasabb fejezete is a paprikához kötődik. Szent-Györgyi Albert, a szegedi egyetem professzora az 1930-as években a titokzatos C-vitamint kutatta, de nem talált olyan növényt, amiből elegendő mennyiséget tudott volna kivonni a kísérleteihez.<br><br>A legenda szerint egy este a felesége paprikasalátát tálalt neki vacsorára. A professzornak éppen nem volt kedve megenni az ételt, de hogy ne bántsa meg a feleségét, azt hazudta, hogy sürgősen be kell vinnie a laboratóriumba megvizsgálni. Ott, azon az éjszakán fedezte fel, hogy a paprika valóságos „vitaminbomba”: hatalmas mennyiségben tartalmaz C-vitamint. Emiatt a felfedezés miatt kapott Szent-Györgyi Albert 1937-ben orvosi Nobel-díjat, amely azóta is az egyetlen olyan magyar Nobel-díj, amelyet hazai kutatómunkáért ítéltek oda.<br><br><h3>Hungarikum a konyhában</h3><br>Ma a magyar fűszerpaprika hivatalos hungarikum. Ez azt jelenti, hogy a magyar kultúra és gasztronómia elválaszthatatlan és védett kincse. Legyen szó halászléről, pörköltről vagy paprikás krumpliról, az a különleges, mélyvörös szín és illat teszi világszerte felismerhetővé a magyar ételeket, amit ez a messziről jött, de nálunk otthonra lelt növény ad nekünk.</p>"
+},
+{
+  question: "9. Hol fedezte fel Szent-Györgyi Albert a paprika magas C-vitamin tartalmát?",
+  type: "single",
+  options: ["Egy amerikai laboratóriumban", "A szegedi egyetem laboratóriumában", "Egy kalocsai kertben", "A budapesti piacon"],
+  correct: [1],
+  points: 1,
+  leftImage: "paprika.jpg",
+  leftText: "<h2>A magyar lángnyelv – A fűszerpaprika kalandos története</h2><p><br><br>Sokan azt gondolják, hogy a paprika ősidők óta a magyar konyha legalapvetőbb eleme, pedig ez a növény hihetetlen utat járt be, amíg a gulyásleves legfontosabb összetevője lett. A fűszerpaprika története nem csupán a főzésről, hanem felfedezésekről, háborúkról és egy világraszóló tudományos sikerről is szól.<br><br><h3>Az ismeretlen Újvilágból Európába</h3><br>A paprika eredetileg Közép- és Dél-Amerika trópusi vidékein őshonos. Az indiánok már évezredekkel ezelőtt ismerték, termesztették és nemcsak ételízesítésre, hanem gyógyításra is használták. Európa számára Kolumbusz Kristóf fedezte fel a növényt az 1490-es évek végén. Amikor Kolumbusz partra szállt az ismeretlen földrészen, eredetileg a drága feketeborsot kereste. Bár borsot nem talált, rábukkant erre a csípős termésre, amit „indián borsnak” nevezett el, és spanyol hajókon hozott át az ókontinenre.<br><br>A spanyolok eleinte bizalmatlanok voltak az új növénnyel: leginkább kolostorkertekben nevelték dísznövényként az élénkvörös színe miatt, vagy gyógyszerként alkalmazták emésztési panaszokra és a „hideglelés” (mai nevén malária) ellen.<br><br><h3>Törökbors a kastélykertekben</h3><br>Magyarországra a 16. században, a török hódoltság idején jutott el a növény. A törökök közvetítésével került hozzánk, ezért is hívták évszázadokon át „törökborsnak”. Érdekesség, hogy az első írásos emlékek szerint a magyar főurak kastélyaiban is csak a kert ékessége volt. Szépsége miatt kedvelték, és a néphit úgy tartotta, hogy a ház falára akasztott füzérek távol tartják a rontást és a gonosz szellemeket.<br><br>A paraszti konyhákban csak jóval később, a 18. század végén vált népszerűvé. Ebben az időben a napóleoni háborúk miatt a tengeri kereskedelem akadozott, így a távoli országokból érkező feketebors méregdrágává vált. A magyar gazdák ekkor jöttek rá, hogy a saját kertjükben megtermelt, kiszárított és porrá tört paprika kiválóan helyettesíti a drága import fűszert.<br><br><h3>Szeged és Kalocsa: A paprika fővárosai</h3><br>A magyar fűszerpaprika igazi világhíre a 19. században kezdődött el. Két olyan vidék alakult ki az országban, ahol a talaj és a napsütéses órák magas száma a legalkalmasabb volt a termesztésre: Szeged és Kalocsa.<br><br>A termesztés és feldolgozás nehéz fizikai munka volt. A paprikát kézzel szedték, majd hosszú füzérekbe fűzve a házak eresze alatt szárították a napon. Amikor a termés kopogósra száradt, következett a porítás. Kezdetben lábbal hajtott mozsarakban, úgynevezett „külükben” zúzták össze, később azonban megjelentek a modern gőzmalmok, amelyek finom, selymes port állítottak elő.<br><br>Fontos tudni, hogy régen minden paprika csípős volt. A mai konyhákban kedvelt „nemesédes” (vagyis egyáltalán nem csípős) változatot csak az 1920-as években, tudatos nemesítéssel hozták létre a kutatók, kivonva a növényből a csípősséget okozó anyagot, a kapszaicint.<br><br><h3>A vacsora, amely Nobel-díjat ért</h3><br>A magyar tudománytörténet egyik legizgalmasabb fejezete is a paprikához kötődik. Szent-Györgyi Albert, a szegedi egyetem professzora az 1930-as években a titokzatos C-vitamint kutatta, de nem talált olyan növényt, amiből elegendő mennyiséget tudott volna kivonni a kísérleteihez.<br><br>A legenda szerint egy este a felesége paprikasalátát tálalt neki vacsorára. A professzornak éppen nem volt kedve megenni az ételt, de hogy ne bántsa meg a feleségét, azt hazudta, hogy sürgősen be kell vinnie a laboratóriumba megvizsgálni. Ott, azon az éjszakán fedezte fel, hogy a paprika valóságos „vitaminbomba”: hatalmas mennyiségben tartalmaz C-vitamint. Emiatt a felfedezés miatt kapott Szent-Györgyi Albert 1937-ben orvosi Nobel-díjat, amely azóta is az egyetlen olyan magyar Nobel-díj, amelyet hazai kutatómunkáért ítéltek oda.<br><br><h3>Hungarikum a konyhában</h3><br>Ma a magyar fűszerpaprika hivatalos hungarikum. Ez azt jelenti, hogy a magyar kultúra és gasztronómia elválaszthatatlan és védett kincse. Legyen szó halászléről, pörköltről vagy paprikás krumpliról, az a különleges, mélyvörös szín és illat teszi világszerte felismerhetővé a magyar ételeket, amit ez a messziről jött, de nálunk otthonra lelt növény ad nekünk.</p>"
+},
+{
+  question: "10. Melyik állítás HAMIS Szent-Györgyi Alberttel kapcsolatban?",
+  type: "single",
+  options: [
+    "Nobel-díjat kapott a felfedezéséért.", 
+    "A felesége paprikasalátát tálalt neki vacsorára.", 
+    "Budapesten végezte a Nobel-díjat érő kutatást.", 
+    "A paprika C-vitamin tartalmát vizsgálta."
+  ],
+  correct: [2],
+  points: 1,
+  leftImage: "paprika.jpg",
+  leftText: "<h2>A magyar lángnyelv – A fűszerpaprika kalandos története</h2><p><br><br>Sokan azt gondolják, hogy a paprika ősidők óta a magyar konyha legalapvetőbb eleme, pedig ez a növény hihetetlen utat járt be, amíg a gulyásleves legfontosabb összetevője lett. A fűszerpaprika története nem csupán a főzésről, hanem felfedezésekről, háborúkról és egy világraszóló tudományos sikerről is szól.<br><br><h3>Az ismeretlen Újvilágból Európába</h3><br>A paprika eredetileg Közép- és Dél-Amerika trópusi vidékein őshonos. Az indiánok már évezredekkel ezelőtt ismerték, termesztették és nemcsak ételízesítésre, hanem gyógyításra is használták. Európa számára Kolumbusz Kristóf fedezte fel a növényt az 1490-es évek végén. Amikor Kolumbusz partra szállt az ismeretlen földrészen, eredetileg a drága feketeborsot kereste. Bár borsot nem talált, rábukkant erre a csípős termésre, amit „indián borsnak” nevezett el, és spanyol hajókon hozott át az ókontinenre.<br><br>A spanyolok eleinte bizalmatlanok voltak az új növénnyel: leginkább kolostorkertekben nevelték dísznövényként az élénkvörös színe miatt, vagy gyógyszerként alkalmazták emésztési panaszokra és a „hideglelés” (mai nevén malária) ellen.<br><br><h3>Törökbors a kastélykertekben</h3><br>Magyarországra a 16. században, a török hódoltság idején jutott el a növény. A törökök közvetítésével került hozzánk, ezért is hívták évszázadokon át „törökborsnak”. Érdekesség, hogy az első írásos emlékek szerint a magyar főurak kastélyaiban is csak a kert ékessége volt. Szépsége miatt kedvelték, és a néphit úgy tartotta, hogy a ház falára akasztott füzérek távol tartják a rontást és a gonosz szellemeket.<br><br>A paraszti konyhákban csak jóval később, a 18. század végén vált népszerűvé. Ebben az időben a napóleoni háborúk miatt a tengeri kereskedelem akadozott, így a távoli országokból érkező feketebors méregdrágává vált. A magyar gazdák ekkor jöttek rá, hogy a saját kertjükben megtermelt, kiszárított és porrá tört paprika kiválóan helyettesíti a drága import fűszert.<br><br><h3>Szeged és Kalocsa: A paprika fővárosai</h3><br>A magyar fűszerpaprika igazi világhíre a 19. században kezdődött el. Két olyan vidék alakult ki az országban, ahol a talaj és a napsütéses órák magas száma a legalkalmasabb volt a termesztésre: Szeged és Kalocsa.<br><br>A termesztés és feldolgozás nehéz fizikai munka volt. A paprikát kézzel szedték, majd hosszú füzérekbe fűzve a házak eresze alatt szárították a napon. Amikor a termés kopogósra száradt, következett a porítás. Kezdetben lábbal hajtott mozsarakban, úgynevezett „külükben” zúzták össze, később azonban megjelentek a modern gőzmalmok, amelyek finom, selymes port állítottak elő.<br><br>Fontos tudni, hogy régen minden paprika csípős volt. A mai konyhákban kedvelt „nemesédes” (vagyis egyáltalán nem csípős) változatot csak az 1920-as években, tudatos nemesítéssel hozták létre a kutatók, kivonva a növényből a csípősséget okozó anyagot, a kapszaicint.<br><br><h3>A vacsora, amely Nobel-díjat ért</h3><br>A magyar tudománytörténet egyik legizgalmasabb fejezete is a paprikához kötődik. Szent-Györgyi Albert, a szegedi egyetem professzora az 1930-as években a titokzatos C-vitamint kutatta, de nem talált olyan növényt, amiből elegendő mennyiséget tudott volna kivonni a kísérleteihez.<br><br>A legenda szerint egy este a felesége paprikasalátát tálalt neki vacsorára. A professzornak éppen nem volt kedve megenni az ételt, de hogy ne bántsa meg a feleségét, azt hazudta, hogy sürgősen be kell vinnie a laboratóriumba megvizsgálni. Ott, azon az éjszakán fedezte fel, hogy a paprika valóságos „vitaminbomba”: hatalmas mennyiségben tartalmaz C-vitamint. Emiatt a felfedezés miatt kapott Szent-Györgyi Albert 1937-ben orvosi Nobel-díjat, amely azóta is az egyetlen olyan magyar Nobel-díj, amelyet hazai kutatómunkáért ítéltek oda.<br><br><h3>Hungarikum a konyhában</h3><br>Ma a magyar fűszerpaprika hivatalos hungarikum. Ez azt jelenti, hogy a magyar kultúra és gasztronómia elválaszthatatlan és védett kincse. Legyen szó halászléről, pörköltről vagy paprikás krumpliról, az a különleges, mélyvörös szín és illat teszi világszerte felismerhetővé a magyar ételeket, amit ez a messziről jött, de nálunk otthonra lelt növény ad nekünk.</p>"
+},
+
+// --- A HÓDOK TITKOS ÉLETE FELADATSOR ---
+{
+  question: "11. Miért nevezik a hódokat az „erdő mérnökeinek”?",
+  type: "single",
+  options: [
+    "Mert megtanultak tervrajzokat készíteni", 
+    "Mert képesek teljesen átalakítani a környezetüket az építményeikkel", 
+    "Mert csak beteg fákat döntenek ki", 
+    "Mert ők irányítják a többi erdei állatot"
+  ],
+  correct: [1],
+  points: 1,
+  leftImage: "hod.jpg",
+  leftText: "<h2>Az erdő mérnökei – A hódok titkos élete</h2><p><br>Ha az állatvilág legügyesebb építőmestereit keressük, az európai hódok biztosan az első helyen végeznek. Ezek a különleges rágcsálók nem csupán lakóhelyet építenek maguknak, hanem képesek egész tájakat átalakítani. Munkájuk olyan precíz, hogy a kutatók gyakran nevezik őket az „erdő mérnökeinek”.<br><br><h3>Felszerelés a munkához: Fogak és farok</h3><br>A hód nem véletlenül lett ilyen jó építő: a teste minden részét a vízi életmódhoz és a fakitermeléshez tervezte a természet. A legfontosabb szerszámai a metszőfogai. Ezek a fogak narancssárga színűek (a bennük lévő vas miatt), rendkívül erősek és – ami a legfontosabb – folyamatosan nőnek. Ha a hód nem rágna állandóan fát, a fogai túlnőnének, és nem tudna enni. Egy hód képes egyetlen éjszaka alatt kidönteni egy 20 centiméter átmérőjű fát.<br><br>A másik különleges testrésze a farka. Ez nem szőrös, hanem pikkelyes, lapos és leginkább egy evezőlapáthoz hasonlít. Úszás közben kormányként használja, de ha veszélyt érez (például egy farkas vagy egy medve közeledik), a farkával hatalmasat csap a víz felszínére. Ez a dörrenésszerű hang figyelmezteti a család többi tagját: „Vigyázat, ellenség a láthatáron! Mindenki a víz alá!”<br><br><h3>A nagy gátépítés: Miért és hogyan?</h3><br>A hódok leglátványosabb munkája a gát. Sokan azt hiszik, ebben laknak, de ez tévedés. A gátat azért építik a patakokra, hogy elrezeljék a víz útját, és egy csendes, mély vizű tavat hozzanak létre. Erre azért van szükségük, mert a szárazföldön a hód lassú és esetlen, de a vízben villámgyors.<br><br>A gátépítéshez először nagyobb fatörzseket rögzítenek a meder aljára, majd ezeket ágakkal, hánccsal, kövekkel és sárral tömítik el. Olyan erős építmények ezek, hogy néha egy felnőtt ember is átsétálhat rajtuk anélkül, hogy beszakadnának. A gát mögött felduzzadt víz biztonságos útvonalat jelent nekik, amin úsztatva könnyebben elszállíthatják a nehéz ágakat.<br><br><h3>A hódvár: Víz alatti titkos bejárat</h3><br>A hód családja a hódvárban lakik, amit a tó közepére vagy a part szélére építenek. Ez egy hatalmas ághalom, amit sárral tapasztanak le, hogy a téli hidegben is meleg maradjon. A vár legfontosabb trükkje a bejárat: az mindig a vízszint alatt van. Így a ragadozók nem tudnak bejutni, hiszen nem tudnak a víz alatt közlekedni, a hódok viszont egy gyors merüléssel máris a biztonságos, száraz lakószobájukban teremnek.<br><br>A vár belsejében külön helyiség van az alvásra és a kölykök nevelésére. A hódok nagyon tiszta állatok, a „lakást” rendszeresen takarítják, és az aljzatot puha faforgáccsal bélelik ki.<br><br><h3>A hódok és az ember</h3><br>Magyarország folyói mellől (mint a Duna vagy a Tisza) a 19. században majdnem teljesen eltűntek a hódok, mert értékes szőrméjük miatt vadászták őket. Szerencsére az elmúlt évtizedekben sikeresen visszatelepítették őket, és ma már újra több ezer hód él nálunk.<br><br>Bár néha bosszúságot okoznak a gazdáknak a kidöntött fákkal, jelenlétük nagyon hasznos. A hódok által létrehozott tavakban új életre kel a természet: ritka halak, békák és vízimadarak találnak ott otthonra. Ahol megjelenik a hód, ott az erdő egészségesebb és élettel telibb lesz.</p>"
+},
+{
+  question: "12. Milyen különleges tulajdonságai vannak a hód fogainak? (Két helyes válasz van.)",
+  type: "multi",
+  options: [
+    "Narancssárga színűek a vas miatt", 
+    "Kiesnek, ha túl sokat rágják a fát", 
+    "Folyamatosan nőnek az állat élete során", 
+    "Éjszaka világítanak a víz alatt"
+  ],
+  correct: [0, 2],
+  points: 2,
+  leftImage: "hod.jpg",
+  leftText: "<h2>Az erdő mérnökei – A hódok titkos élete</h2><p><br>Ha az állatvilág legügyesebb építőmestereit keressük, az európai hódok biztosan az első helyen végeznek. Ezek a különleges rágcsálók nem csupán lakóhelyet építenek maguknak, hanem képesek egész tájakat átalakítani. Munkájuk olyan precíz, hogy a kutatók gyakran nevezik őket az „erdő mérnökeinek”.<br><br><h3>Felszerelés a munkához: Fogak és farok</h3><br>A hód nem véletlenül lett ilyen jó építő: a teste minden részét a vízi életmódhoz és a fakitermeléshez tervezte a természet. A legfontosabb szerszámai a metszőfogai. Ezek a fogak narancssárga színűek (a bennük lévő vas miatt), rendkívül erősek és – ami a legfontosabb – folyamatosan nőnek. Ha a hód nem rágna állandóan fát, a fogai túlnőnének, és nem tudna enni. Egy hód képes egyetlen éjszaka alatt kidönteni egy 20 centiméter átmérőjű fát.<br><br>A másik különleges testrésze a farka. Ez nem szőrös, hanem pikkelyes, lapos és leginkább egy evezőlapáthoz hasonlít. Úszás közben kormányként használja, de ha veszélyt érez (például egy farkas vagy egy medve közeledik), a farkával hatalmasat csap a víz felszínére. Ez a dörrenésszerű hang figyelmezteti a család többi tagját: „Vigyázat, ellenség a láthatáron! Mindenki a víz alá!”<br><br><h3>A nagy gátépítés: Miért és hogyan?</h3><br>A hódok leglátványosabb munkája a gát. Sokan azt hiszik, ebben laknak, de ez tévedés. A gátat azért építik a patakokra, hogy elrezeljék a víz útját, és egy csendes, mély vizű tavat hozzanak létre. Erre azért van szükségük, mert a szárazföldön a hód lassú és esetlen, de a vízben villámgyors.<br><br>A gátépítéshez először nagyobb fatörzseket rögzítenek a meder aljára, majd ezeket ágakkal, hánccsal, kövekkel és sárral tömítik el. Olyan erős építmények ezek, hogy néha egy felnőtt ember is átsétálhat rajtuk anélkül, hogy beszakadnának. A gát mögött felduzzadt víz biztonságos útvonalat jelent nekik, amin úsztatva könnyebben elszállíthatják a nehéz ágakat.<br><br><h3>A hódvár: Víz alatti titkos bejárat</h3><br>A hód családja a hódvárban lakik, amit a tó közepére vagy a part szélére építenek. Ez egy hatalmas ághalom, amit sárral tapasztanak le, hogy a téli hidegben is meleg maradjon. A vár legfontosabb trükkje a bejárat: az mindig a vízszint alatt van. Így a ragadozók nem tudnak bejutni, hiszen nem tudnak a víz alatt közlekedni, a hódok viszont egy gyors merüléssel máris a biztonságos, száraz lakószobájukban teremnek.<br><br>A vár belsejében külön helyiség van az alvásra és a kölykök nevelésére. A hódok nagyon tiszta állatok, a „lakást” rendszeresen takarítják, és az aljzatot puha faforgáccsal bélelik ki.<br><br><h3>A hódok és az ember</h3><br>Magyarország folyói mellől (mint a Duna vagy a Tisza) a 19. században majdnem teljesen eltűntek a hódok, mert értékes szőrméjük miatt vadászták őket. Szerencsére az elmúlt évtizedekben sikeresen visszatelepítették őket, és ma már újra több ezer hód él nálunk.<br><br>Bár néha bosszúságot okoznak a gazdáknak a kidöntött fákkal, jelenlétük nagyon hasznos. A hódok által létrehozott tavakban új életre kel a természet: ritka halak, békák és vízimadarak találnak ott otthonra. Ahol megjelenik a hód, ott az erdő egészségesebb és élettel telibb lesz.</p>"
+},
+{
+  question: "13. Hogyan figyelmeztetik egymást a hódok a veszélyre?",
+  type: "single",
+  options: [
+    "Hangos füttyentéssel", 
+    "A farkukkal hatalmasat csapnak a víz felszínére", 
+    "Különleges illatanyagot bocsátanak ki", 
+    "Gyorsan körbeússzák a várat"
+  ],
+  correct: [1],
+  points: 1,
+  leftImage: "hod.jpg",
+  leftText: "<h2>Az erdő mérnökei – A hódok titkos élete</h2><p><br>Ha az állatvilág legügyesebb építőmestereit keressük, az európai hódok biztosan az első helyen végeznek. Ezek a különleges rágcsálók nem csupán lakóhelyet építenek maguknak, hanem képesek egész tájakat átalakítani. Munkájuk olyan precíz, hogy a kutatók gyakran nevezik őket az „erdő mérnökeinek”.<br><br><h3>Felszerelés a munkához: Fogak és farok</h3><br>A hód nem véletlenül lett ilyen jó építő: a teste minden részét a vízi életmódhoz és a fakitermeléshez tervezte a természet. A legfontosabb szerszámai a metszőfogai. Ezek a fogak narancssárga színűek (a bennük lévő vas miatt), rendkívül erősek és – ami a legfontosabb – folyamatosan nőnek. Ha a hód nem rágna állandóan fát, a fogai túlnőnének, és nem tudna enni. Egy hód képes egyetlen éjszaka alatt kidönteni egy 20 centiméter átmérőjű fát.<br><br>A másik különleges testrésze a farka. Ez nem szőrös, hanem pikkelyes, lapos és leginkább egy evezőlapáthoz hasonlít. Úszás közben kormányként használja, de ha veszélyt érez (például egy farkas vagy egy medve közeledik), a farkával hatalmasat csap a víz felszínére. Ez a dörrenésszerű hang figyelmezteti a család többi tagját: „Vigyázat, ellenség a láthatáron! Mindenki a víz alá!”<br><br><h3>A nagy gátépítés: Miért és hogyan?</h3><br>A hódok leglátványosabb munkája a gát. Sokan azt hiszik, ebben laknak, de ez tévedés. A gátat azért építik a patakokra, hogy elrezeljék a víz útját, és egy csendes, mély vizű tavat hozzanak létre. Erre azért van szükségük, mert a szárazföldön a hód lassú és esetlen, de a vízben villámgyors.<br><br>A gátépítéshez először nagyobb fatörzseket rögzítenek a meder aljára, majd ezeket ágakkal, hánccsal, kövekkel és sárral tömítik el. Olyan erős építmények ezek, hogy néha egy felnőtt ember is átsétálhat rajtuk anélkül, hogy beszakadnának. A gát mögött felduzzadt víz biztonságos útvonalat jelent nekik, amin úsztatva könnyebben elszállíthatják a nehéz ágakat.<br><br><h3>A hódvár: Víz alatti titkos bejárat</h3><br>A hód családja a hódvárban lakik, amit a tó közepére vagy a part szélére építenek. Ez egy hatalmas ághalom, amit sárral tapasztanak le, hogy a téli hidegben is meleg maradjon. A vár legfontosabb trükkje a bejárat: az mindig a vízszint alatt van. Így a ragadozók nem tudnak bejutni, hiszen nem tudnak a víz alatt közlekedni, a hódok viszont egy gyors merüléssel máris a biztonságos, száraz lakószobájukban teremnek.<br><br>A vár belsejében külön helyiség van az alvásra és a kölykök nevelésére. A hódok nagyon tiszta állatok, a „lakást” rendszeresen takarítják, és az aljzatot puha faforgáccsal bélelik ki.<br><br><h3>A hódok és az ember</h3><br>Magyarország folyói mellől (mint a Duna vagy a Tisza) a 19. században majdnem teljesen eltűntek a hódok, mert értékes szőrméjük miatt vadászták őket. Szerencsére az elmúlt évtizedekben sikeresen visszatelepítették őket, és ma már újra több ezer hód él nálunk.<br><br>Bár néha bosszúságot okoznak a gazdáknak a kidöntött fákkal, jelenlétük nagyon hasznos. A hódok által létrehozott tavakban új életre kel a természet: ritka halak, békák és vízimadarak találnak ott otthonra. Ahol megjelenik a hód, ott az erdő egészségesebb és élettel telibb lesz.</p>"
+},
+{
+  question: "14. Mi a különbség a gát és a hódvár között a szöveg alapján?",
+  type: "single",
+  options: [
+    "A gátban laknak, a hódvárral pedig halat fognak", 
+    "Nincs különbség, a két szó ugyanazt jelenti", 
+    "A gát a víz felduzzasztására szolgál, a vár pedig a lakóhelyük", 
+    "A gátat sárral, a várat csak ágakkal építik"
+  ],
+  correct: [2],
+  points: 1,
+  leftImage: "hod.jpg",
+  leftText: "<h2>Az erdő mérnökei – A hódok titkos élete</h2><p><br>Ha az állatvilág legügyesebb építőmestereit keressük, az európai hódok biztosan az első helyen végeznek. Ezek a különleges rágcsálók nem csupán lakóhelyet építenek maguknak, hanem képesek egész tájakat átalakítani. Munkájuk olyan precíz, hogy a kutatók gyakran nevezik őket az „erdő mérnökeinek”.<br><br><h3>Felszerelés a munkához: Fogak és farok</h3><br>A hód nem véletlenül lett ilyen jó építő: a teste minden részét a vízi életmódhoz és a fakitermeléshez tervezte a természet. A legfontosabb szerszámai a metszőfogai. Ezek a fogak narancssárga színűek (a bennük lévő vas miatt), rendkívül erősek és – ami a legfontosabb – folyamatosan nőnek. Ha a hód nem rágna állandóan fát, a fogai túlnőnének, és nem tudna enni. Egy hód képes egyetlen éjszaka alatt kidönteni egy 20 centiméter átmérőjű fát.<br><br>A másik különleges testrésze a farka. Ez nem szőrös, hanem pikkelyes, lapos és leginkább egy evezőlapáthoz hasonlít. Úszás közben kormányként használja, de ha veszélyt érez (például egy farkas vagy egy medve közeledik), a farkával hatalmasat csap a víz felszínére. Ez a dörrenésszerű hang figyelmezteti a család többi tagját: „Vigyázat, ellenség a láthatáron! Mindenki a víz alá!”<br><br><h3>A nagy gátépítés: Miért és hogyan?</h3><br>A hódok leglátványosabb munkája a gát. Sokan azt hiszik, ebben laknak, de ez tévedés. A gátat azért építik a patakokra, hogy elrezeljék a víz útját, és egy csendes, mély vizű tavat hozzanak létre. Erre azért van szükségük, mert a szárazföldön a hód lassú és esetlen, de a vízben villámgyors.<br><br>A gátépítéshez először nagyobb fatörzseket rögzítenek a meder aljára, majd ezeket ágakkal, hánccsal, kövekkel és sárral tömítik el. Olyan erős építmények ezek, hogy néha egy felnőtt ember is átsétálhat rajtuk anélkül, hogy beszakadnának. A gát mögött felduzzadt víz biztonságos útvonalat jelent nekik, amin úsztatva könnyebben elszállíthatják a nehéz ágakat.<br><br><h3>A hódvár: Víz alatti titkos bejárat</h3><br>A hód családja a hódvárban lakik, amit a tó közepére vagy a part szélére építenek. Ez egy hatalmas ághalom, amit sárral tapasztanak le, hogy a téli hidegben is meleg maradjon. A vár legfontosabb trükkje a bejárat: az mindig a vízszint alatt van. Így a ragadozók nem tudnak bejutni, hiszen nem tudnak a víz alatt közlekedni, a hódok viszont egy gyors merüléssel máris a biztonságos, száraz lakószobájukban teremnek.<br><br>A vár belsejében külön helyiség van az alvásra és a kölykök nevelésére. A hódok nagyon tiszta állatok, a „lakást” rendszeresen takarítják, és az aljzatot puha faforgáccsal bélelik ki.<br><br><h3>A hódok és az ember</h3><br>Magyarország folyói mellől (mint a Duna vagy a Tisza) a 19. században majdnem teljesen eltűntek a hódok, mert értékes szőrméjük miatt vadászták őket. Szerencsére az elmúlt évtizedekben sikeresen visszatelepítették őket, és ma már újra több ezer hód él nálunk.<br><br>Bár néha bosszúságot okoznak a gazdáknak a kidöntött fákkal, jelenlétük nagyon hasznos. A hódok által létrehozott tavakban új életre kel a természet: ritka halak, békák és vízimadarak találnak ott otthonra. Ahol megjelenik a hód, ott az erdő egészségesebb és élettel telibb lesz.</p>"
+},
+{
+  question: "15. Milyen anyagokat használnak fel a gát építéséhez? (Többválasztásos)",
+  type: "multi",
+  options: ["Fatörzsek", "Beton", "Sár és kövek", "Műanyag hulladék"],
+  correct: [0, 2],
+  points: 2,
+  leftImage: "hod.jpg",
+  leftText: "<h2>Az erdő mérnökei – A hódok titkos élete</h2><p><br>Ha az állatvilág legügyesebb építőmestereit keressük, az európai hódok biztosan az első helyen végeznek. Ezek a különleges rágcsálók nem csupán lakóhelyet építenek maguknak, hanem képesek egész tájakat átalakítani. Munkájuk olyan precíz, hogy a kutatók gyakran nevezik őket az „erdő mérnökeinek”.<br><br><h3>Felszerelés a munkához: Fogak és farok</h3><br>A hód nem véletlenül lett ilyen jó építő: a teste minden részét a vízi életmódhoz és a fakitermeléshez tervezte a természet. A legfontosabb szerszámai a metszőfogai. Ezek a fogak narancssárga színűek (a bennük lévő vas miatt), rendkívül erősek és – ami a legfontosabb – folyamatosan nőnek. Ha a hód nem rágna állandóan fát, a fogai túlnőnének, és nem tudna enni. Egy hód képes egyetlen éjszaka alatt kidönteni egy 20 centiméter átmérőjű fát.<br><br>A másik különleges testrésze a farka. Ez nem szőrös, hanem pikkelyes, lapos és leginkább egy evezőlapáthoz hasonlít. Úszás közben kormányként használja, de ha veszélyt érez (például egy farkas vagy egy medve közeledik), a farkával hatalmasat csap a víz felszínére. Ez a dörrenésszerű hang figyelmezteti a család többi tagját: „Vigyázat, ellenség a láthatáron! Mindenki a víz alá!”<br><br><h3>A nagy gátépítés: Miért és hogyan?</h3><br>A hódok leglátványosabb munkája a gát. Sokan azt hiszik, ebben laknak, de ez tévedés. A gátat azért építik a patakokra, hogy elrezeljék a víz útját, és egy csendes, mély vizű tavat hozzanak létre. Erre azért van szükségük, mert a szárazföldön a hód lassú és esetlen, de a vízben villámgyors.<br><br>A gátépítéshez először nagyobb fatörzseket rögzítenek a meder aljára, majd ezeket ágakkal, hánccsal, kövekkel és sárral tömítik el. Olyan erős építmények ezek, hogy néha egy felnőtt ember is átsétálhat rajtuk anélkül, hogy beszakadnának. A gát mögött felduzzadt víz biztonságos útvonalat jelent nekik, amin úsztatva könnyebben elszállíthatják a nehéz ágakat.<br><br><h3>A hódvár: Víz alatti titkos bejárat</h3><br>A hód családja a hódvárban lakik, amit a tó közepére vagy a part szélére építenek. Ez egy hatalmas ághalom, amit sárral tapasztanak le, hogy a téli hidegben is meleg maradjon. A vár legfontosabb trükkje a bejárat: az mindig a vízszint alatt van. Így a ragadozók nem tudnak bejutni, hiszen nem tudnak a víz alatt közlekedni, a hódok viszont egy gyors merüléssel máris a biztonságos, száraz lakószobájukban teremnek.<br><br>A vár belsejében külön helyiség van az alvásra és a kölykök nevelésére. A hódok nagyon tiszta állatok, a „lakást” rendszeresen takarítják, és az aljzatot puha faforgáccsal bélelik ki.<br><br><h3>A hódok és az ember</h3><br>Magyarország folyói mellől (mint a Duna vagy a Tisza) a 19. században majdnem teljesen eltűntek a hódok, mert értékes szőrméjük miatt vadászták őket. Szerencsére az elmúlt évtizedekben sikeresen visszatelepítették őket, és ma már újra több ezer hód él nálunk.<br><br>Bár néha bosszúságot okoznak a gazdáknak a kidöntött fákkal, jelenlétük nagyon hasznos. A hódok által létrehozott tavakban új életre kel a természet: ritka halak, békák és vízimadarak találnak ott otthonra. Ahol megjelenik a hód, ott az erdő egészségesebb és élettel telibb lesz.</p>"
+},
+{
+  question: "16. Hol található a hódvár bejárata és miért?",
+  type: "single",
+  options: [
+    "A vár tetején, hogy kapjanak friss levegőt", 
+    "A vízszint alatt, hogy a ragadozók ne jussanak be", 
+    "A part felőli oldalon, hogy könnyebb legyen kijönni", 
+    "A hódvárnak nincs bejárata, a falon rágják át magukat"
+  ],
+  correct: [1],
+  points: 1,
+  leftImage: "hod.jpg",
+  leftText: "<h2>Az erdő mérnökei – A hódok titkos élete</h2><p><br>Ha az állatvilág legügyesebb építőmestereit keressük, az európai hódok biztosan az első helyen végeznek. Ezek a különleges rágcsálók nem csupán lakóhelyet építenek maguknak, hanem képesek egész tájakat átalakítani. Munkájuk olyan precíz, hogy a kutatók gyakran nevezik őket az „erdő mérnökeinek”.<br><br><h3>Felszerelés a munkához: Fogak és farok</h3><br>A hód nem véletlenül lett ilyen jó építő: a teste minden részét a vízi életmódhoz és a fakitermeléshez tervezte a természet. A legfontosabb szerszámai a metszőfogai. Ezek a fogak narancssárga színűek (a bennük lévő vas miatt), rendkívül erősek és – ami a legfontosabb – folyamatosan nőnek. Ha a hód nem rágna állandóan fát, a fogai túlnőnének, és nem tudna enni. Egy hód képes egyetlen éjszaka alatt kidönteni egy 20 centiméter átmérőjű fát.<br><br>A másik különleges testrésze a farka. Ez nem szőrös, hanem pikkelyes, lapos és leginkább egy evezőlapáthoz hasonlít. Úszás közben kormányként használja, de ha veszélyt érez (például egy farkas vagy egy medve közeledik), a farkával hatalmasat csap a víz felszínére. Ez a dörrenésszerű hang figyelmezteti a család többi tagját: „Vigyázat, ellenség a láthatáron! Mindenki a víz alá!”<br><br><h3>A nagy gátépítés: Miért és hogyan?</h3><br>A hódok leglátványosabb munkája a gát. Sokan azt hiszik, ebben laknak, de ez tévedés. A gátat azért építik a patakokra, hogy elrezeljék a víz útját, és egy csendes, mély vizű tavat hozzanak létre. Erre azért van szükségük, mert a szárazföldön a hód lassú és esetlen, de a vízben villámgyors.<br><br>A gátépítéshez először nagyobb fatörzseket rögzítenek a meder aljára, majd ezeket ágakkal, hánccsal, kövekkel és sárral tömítik el. Olyan erős építmények ezek, hogy néha egy felnőtt ember is átsétálhat rajtuk anélkül, hogy beszakadnának. A gát mögött felduzzadt víz biztonságos útvonalat jelent nekik, amin úsztatva könnyebben elszállíthatják a nehéz ágakat.<br><br><h3>A hódvár: Víz alatti titkos bejárat</h3><br>A hód családja a hódvárban lakik, amit a tó közepére vagy a part szélére építenek. Ez egy hatalmas ághalom, amit sárral tapasztanak le, hogy a téli hidegben is meleg maradjon. A vár legfontosabb trükkje a bejárat: az mindig a vízszint alatt van. Így a ragadozók nem tudnak bejutni, hiszen nem tudnak a víz alatt közlekedni, a hódok viszont egy gyors merüléssel máris a biztonságos, száraz lakószobájukban teremnek.<br><br>A vár belsejében külön helyiség van az alvásra és a kölykök nevelésére. A hódok nagyon tiszta állatok, a „lakást” rendszeresen takarítják, és az aljzatot puha faforgáccsal bélelik ki.<br><br><h3>A hódok és az ember</h3><br>Magyarország folyói mellől (mint a Duna vagy a Tisza) a 19. században majdnem teljesen eltűntek a hódok, mert értékes szőrméjük miatt vadászták őket. Szerencsére az elmúlt évtizedekben sikeresen visszatelepítették őket, és ma már újra több ezer hód él nálunk.<br><br>Bár néha bosszúságot okoznak a gazdáknak a kidöntött fákkal, jelenlétük nagyon hasznos. A hódok által létrehozott tavakban új életre kel a természet: ritka halak, békák és vízimadarak találnak ott otthonra. Ahol megjelenik a hód, ott az erdő egészségesebb és élettel telibb lesz.</p>"
+},
+{
+  question: "17. Válaszd ki a hód jellemzőit a mondatok kiegészítésével!",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "A hódok  állatok, főleg éjszaka aktívak.", blanks: [2] },
+    { text: "Lapos farkuk olyan, mint egy .", blanks: [5] },
+    { text: "A hódvár belsejét  bélelik ki.", blanks: [3] }
+  ],
+  options: [
+    ["nappali", "éjszakai", "reggeli"],
+    ["kormányevező", "lapát", "kerék"],
+    ["puha faforgáccsal", "száraz fűvel", "friss szalmával"]
+  ],
+  correct: [1, 0, 0],
+  points: 3,
+  leftImage: "hod.jpg",
+  leftText: "<h2>Az erdő mérnökei – A hódok titkos élete</h2><p><br>Ha az állatvilág legügyesebb építőmestereit keressük, az európai hódok biztosan az első helyen végeznek. Ezek a különleges rágcsálók nem csupán lakóhelyet építenek maguknak, hanem képesek egész tájakat átalakítani. Munkájuk olyan precíz, hogy a kutatók gyakran nevezik őket az „erdő mérnökeinek”.<br><br><h3>Felszerelés a munkához: Fogak és farok</h3><br>A hód nem véletlenül lett ilyen jó építő: a teste minden részét a vízi életmódhoz és a fakitermeléshez tervezte a természet. A legfontosabb szerszámai a metszőfogai. Ezek a fogak narancssárga színűek (a bennük lévő vas miatt), rendkívül erősek és – ami a legfontosabb – folyamatosan nőnek. Ha a hód nem rágna állandóan fát, a fogai túlnőnének, és nem tudna enni. Egy hód képes egyetlen éjszaka alatt kidönteni egy 20 centiméter átmérőjű fát.<br><br>A másik különleges testrésze a farka. Ez nem szőrös, hanem pikkelyes, lapos és leginkább egy evezőlapáthoz hasonlít. Úszás közben kormányként használja, de ha veszélyt érez (például egy farkas vagy egy medve közeledik), a farkával hatalmasat csap a víz felszínére. Ez a dörrenésszerű hang figyelmezteti a család többi tagját: „Vigyázat, ellenség a láthatáron! Mindenki a víz alá!”<br><br><h3>A nagy gátépítés: Miért és hogyan?</h3><br>A hódok leglátványosabb munkája a gát. Sokan azt hiszik, ebben laknak, de ez tévedés. A gátat azért építik a patakokra, hogy elrezeljék a víz útját, és egy csendes, mély vizű tavat hozzanak létre. Erre azért van szükségük, mert a szárazföldön a hód lassú és esetlen, de a vízben villámgyors.<br><br>A gátépítéshez először nagyobb fatörzseket rögzítenek a meder aljára, majd ezeket ágakkal, hánccsal, kövekkel és sárral tömítik el. Olyan erős építmények ezek, hogy néha egy felnőtt ember is átsétálhat rajtuk anélkül, hogy beszakadnának. A gát mögött felduzzadt víz biztonságos útvonalat jelent nekik, amin úsztatva könnyebben elszállíthatják a nehéz ágakat.<br><br><h3>A hódvár: Víz alatti titkos bejárat</h3><br>A hód családja a hódvárban lakik, amit a tó közepére vagy a part szélére építenek. Ez egy hatalmas ághalom, amit sárral tapasztanak le, hogy a téli hidegben is meleg maradjon. A vár legfontosabb trükkje a bejárat: az mindig a vízszint alatt van. Így a ragadozók nem tudnak bejutni, hiszen nem tudnak a víz alatt közlekedni, a hódok viszont egy gyors merüléssel máris a biztonságos, száraz lakószobájukban teremnek.<br><br>A vár belsejében külön helyiség van az alvásra és a kölykök nevelésére. A hódok nagyon tiszta állatok, a „lakást” rendszeresen takarítják, és az aljzatot puha faforgáccsal bélelik ki.<br><br><h3>A hódok és az ember</h3><br>Magyarország folyói mellől (mint a Duna vagy a Tisza) a 19. században majdnem teljesen eltűntek a hódok, mert értékes szőrméjük miatt vadászták őket. Szerencsére az elmúlt évtizedekben sikeresen visszatelepítették őket, és ma már újra több ezer hód él nálunk.<br><br>Bár néha bosszúságot okoznak a gazdáknak a kidöntött fákkal, jelenlétük nagyon hasznos. A hódok által létrehozott tavakban új életre kel a természet: ritka halak, békák és vízimadarak találnak ott otthonra. Ahol megjelenik a hód, ott az erdő egészségesebb és élettel telibb lesz.</p>"
+},
+{
+  question: "18. Miért tűntek el majdnem a hódok Magyarországról a 19. században?",
+  type: "single",
+  options: [
+    "Mert elfogyott a kedvenc táplálékuk", 
+    "A klímaváltozás miatt", 
+    "Értékes szőrméjük miatt vadászták őket", 
+    "Elköltöztek a tengerpartra"
+  ],
+  correct: [2],
+  points: 1,
+  leftImage: "hod.jpg",
+  leftText: "<h2>Az erdő mérnökei – A hódok titkos élete</h2><p><br>Ha az állatvilág legügyesebb építőmestereit keressük, az európai hódok biztosan az első helyen végeznek. Ezek a különleges rágcsálók nem csupán lakóhelyet építenek maguknak, hanem képesek egész tájakat átalakítani. Munkájuk olyan precíz, hogy a kutatók gyakran nevezik őket az „erdő mérnökeinek”.<br><br><h3>Felszerelés a munkához: Fogak és farok</h3><br>A hód nem véletlenül lett ilyen jó építő: a teste minden részét a vízi életmódhoz és a fakitermeléshez tervezte a természet. A legfontosabb szerszámai a metszőfogai. Ezek a fogak narancssárga színűek (a bennük lévő vas miatt), rendkívül erősek és – ami a legfontosabb – folyamatosan nőnek. Ha a hód nem rágna állandóan fát, a fogai túlnőnének, és nem tudna enni. Egy hód képes egyetlen éjszaka alatt kidönteni egy 20 centiméter átmérőjű fát.<br><br>A másik különleges testrésze a farka. Ez nem szőrös, hanem pikkelyes, lapos és leginkább egy evezőlapáthoz hasonlít. Úszás közben kormányként használja, de ha veszélyt érez (például egy farkas vagy egy medve közeledik), a farkával hatalmasat csap a víz felszínére. Ez a dörrenésszerű hang figyelmezteti a család többi tagját: „Vigyázat, ellenség a láthatáron! Mindenki a víz alá!”<br><br><h3>A nagy gátépítés: Miért és hogyan?</h3><br>A hódok leglátványosabb munkája a gát. Sokan azt hiszik, ebben laknak, de ez tévedés. A gátat azért építik a patakokra, hogy elrezeljék a víz útját, és egy csendes, mély vizű tavat hozzanak létre. Erre azért van szükségük, mert a szárazföldön a hód lassú és esetlen, de a vízben villámgyors.<br><br>A gátépítéshez először nagyobb fatörzseket rögzítenek a meder aljára, majd ezeket ágakkal, hánccsal, kövekkel és sárral tömítik el. Olyan erős építmények ezek, hogy néha egy felnőtt ember is átsétálhat rajtuk anélkül, hogy beszakadnának. A gát mögött felduzzadt víz biztonságos útvonalat jelent nekik, amin úsztatva könnyebben elszállíthatják a nehéz ágakat.<br><br><h3>A hódvár: Víz alatti titkos bejárat</h3><br>A hód családja a hódvárban lakik, amit a tó közepére vagy a part szélére építenek. Ez egy hatalmas ághalom, amit sárral tapasztanak le, hogy a téli hidegben is meleg maradjon. A vár legfontosabb trükkje a bejárat: az mindig a vízszint alatt van. Így a ragadozók nem tudnak bejutni, hiszen nem tudnak a víz alatt közlekedni, a hódok viszont egy gyors merüléssel máris a biztonságos, száraz lakószobájukban teremnek.<br><br>A vár belsejében külön helyiség van az alvásra és a kölykök nevelésére. A hódok nagyon tiszta állatok, a „lakást” rendszeresen takarítják, és az aljzatot puha faforgáccsal bélelik ki.<br><br><h3>A hódok és az ember</h3><br>Magyarország folyói mellől (mint a Duna vagy a Tisza) a 19. században majdnem teljesen eltűntek a hódok, mert értékes szőrméjük miatt vadászták őket. Szerencsére az elmúlt évtizedekben sikeresen visszatelepítették őket, és ma már újra több ezer hód él nálunk.<br><br>Bár néha bosszúságot okoznak a gazdáknak a kidöntött fákkal, jelenlétük nagyon hasznos. A hódok által létrehozott tavakban új életre kel a természet: ritka halak, békák és vízimadarak találnak ott otthonra. Ahol megjelenik a hód, ott az erdő egészségesebb és élettel telibb lesz.</p>"
+},
+{
+  question: "19. Milyen előnye van annak, ha egy területen hódok élnek?",
+  type: "single",
+  options: [
+    "Kipusztítják a zavaró növényeket", 
+    "Új élőhelyek jönnek létre más állatoknak (halaknak, békáknak)", 
+    "Kevesebb lesz a szúnyog", 
+    "A hódok segítenek a fakitermelésben az embereknek"
+  ],
+  correct: [1],
+  points: 1,
+  leftImage: "hod.jpg",
+  leftText: "<h2>Az erdő mérnökei – A hódok titkos élete</h2><p><br>Ha az állatvilág legügyesebb építőmestereit keressük, az európai hódok biztosan az első helyen végeznek. Ezek a különleges rágcsálók nem csupán lakóhelyet építenek maguknak, hanem képesek egész tájakat átalakítani. Munkájuk olyan precíz, hogy a kutatók gyakran nevezik őket az „erdő mérnökeinek”.<br><br><h3>Felszerelés a munkához: Fogak és farok</h3><br>A hód nem véletlenül lett ilyen jó építő: a teste minden részét a vízi életmódhoz és a fakitermeléshez tervezte a természet. A legfontosabb szerszámai a metszőfogai. Ezek a fogak narancssárga színűek (a bennük lévő vas miatt), rendkívül erősek és – ami a legfontosabb – folyamatosan nőnek. Ha a hód nem rágna állandóan fát, a fogai túlnőnének, és nem tudna enni. Egy hód képes egyetlen éjszaka alatt kidönteni egy 20 centiméter átmérőjű fát.<br><br>A másik különleges testrésze a farka. Ez nem szőrös, hanem pikkelyes, lapos és leginkább egy evezőlapáthoz hasonlít. Úszás közben kormányként használja, de ha veszélyt érez (például egy farkas vagy egy medve közeledik), a farkával hatalmasat csap a víz felszínére. Ez a dörrenésszerű hang figyelmezteti a család többi tagját: „Vigyázat, ellenség a láthatáron! Mindenki a víz alá!”<br><br><h3>A nagy gátépítés: Miért és hogyan?</h3><br>A hódok leglátványosabb munkája a gát. Sokan azt hiszik, ebben laknak, de ez tévedés. A gátat azért építik a patakokra, hogy elrezeljék a víz útját, és egy csendes, mély vizű tavat hozzanak létre. Erre azért van szükségük, mert a szárazföldön a hód lassú és esetlen, de a vízben villámgyors.<br><br>A gátépítéshez először nagyobb fatörzseket rögzítenek a meder aljára, majd ezeket ágakkal, hánccsal, kövekkel és sárral tömítik el. Olyan erős építmények ezek, hogy néha egy felnőtt ember is átsétálhat rajtuk anélkül, hogy beszakadnának. A gát mögött felduzzadt víz biztonságos útvonalat jelent nekik, amin úsztatva könnyebben elszállíthatják a nehéz ágakat.<br><br><h3>A hódvár: Víz alatti titkos bejárat</h3><br>A hód családja a hódvárban lakik, amit a tó közepére vagy a part szélére építenek. Ez egy hatalmas ághalom, amit sárral tapasztanak le, hogy a téli hidegben is meleg maradjon. A vár legfontosabb trükkje a bejárat: az mindig a vízszint alatt van. Így a ragadozók nem tudnak bejutni, hiszen nem tudnak a víz alatt közlekedni, a hódok viszont egy gyors merüléssel máris a biztonságos, száraz lakószobájukban teremnek.<br><br>A vár belsejében külön helyiség van az alvásra és a kölykök nevelésére. A hódok nagyon tiszta állatok, a „lakást” rendszeresen takarítják, és az aljzatot puha faforgáccsal bélelik ki.<br><br><h3>A hódok és az ember</h3><br>Magyarország folyói mellől (mint a Duna vagy a Tisza) a 19. században majdnem teljesen eltűntek a hódok, mert értékes szőrméjük miatt vadászták őket. Szerencsére az elmúlt évtizedekben sikeresen visszatelepítették őket, és ma már újra több ezer hód él nálunk.<br><br>Bár néha bosszúságot okoznak a gazdáknak a kidöntött fákkal, jelenlétük nagyon hasznos. A hódok által létrehozott tavakban új életre kel a természet: ritka halak, békák és vízimadarak találnak ott otthonra. Ahol megjelenik a hód, ott az erdő egészségesebb és élettel telibb lesz.</p>"
+},
+{
+  question: "20. Igaz vagy Hamis állítások a hódokról",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "A hódok gyorsabban mozognak a szárazföldön, mint a vízben. ", blanks: [9] },
+    { text: "A hódvár sárral van letapasztva a hőszigetelés miatt. ", blanks: [8] }
+  ],
+  options: [
+    ["Igaz", "Hamis"],
+    ["Igaz", "Hamis"]
+  ],
+  correct: [1, 0],
+  points: 2,
+  leftImage: "hod.jpg",
+  leftText: "<h2>Az erdő mérnökei – A hódok titkos élete</h2><p><br>Ha az állatvilág legügyesebb építőmestereit keressük, az európai hódok biztosan az első helyen végeznek. Ezek a különleges rágcsálók nem csupán lakóhelyet építenek maguknak, hanem képesek egész tájakat átalakítani. Munkájuk olyan precíz, hogy a kutatók gyakran nevezik őket az „erdő mérnökeinek”.<br><br><h3>Felszerelés a munkához: Fogak és farok</h3><br>A hód nem véletlenül lett ilyen jó építő: a teste minden részét a vízi életmódhoz és a fakitermeléshez tervezte a természet. A legfontosabb szerszámai a metszőfogai. Ezek a fogak narancssárga színűek (a bennük lévő vas miatt), rendkívül erősek és – ami a legfontosabb – folyamatosan nőnek. Ha a hód nem rágna állandóan fát, a fogai túlnőnének, és nem tudna enni. Egy hód képes egyetlen éjszaka alatt kidönteni egy 20 centiméter átmérőjű fát.<br><br>A másik különleges testrésze a farka. Ez nem szőrös, hanem pikkelyes, lapos és leginkább egy evezőlapáthoz hasonlít. Úszás közben kormányként használja, de ha veszélyt érez (például egy farkas vagy egy medve közeledik), a farkával hatalmasat csap a víz felszínére. Ez a dörrenésszerű hang figyelmezteti a család többi tagját: „Vigyázat, ellenség a láthatáron! Mindenki a víz alá!”<br><br><h3>A nagy gátépítés: Miért és hogyan?</h3><br>A hódok leglátványosabb munkája a gát. Sokan azt hiszik, ebben laknak, de ez tévedés. A gátat azért építik a patakokra, hogy elrezeljék a víz útját, és egy csendes, mély vizű tavat hozzanak létre. Erre azért van szükségük, mert a szárazföldön a hód lassú és esetlen, de a vízben villámgyors.<br><br>A gátépítéshez először nagyobb fatörzseket rögzítenek a meder aljára, majd ezeket ágakkal, hánccsal, kövekkel és sárral tömítik el. Olyan erős építmények ezek, hogy néha egy felnőtt ember is átsétálhat rajtuk anélkül, hogy beszakadnának. A gát mögött felduzzadt víz biztonságos útvonalat jelent nekik, amin úsztatva könnyebben elszállíthatják a nehéz ágakat.<br><br><h3>A hódvár: Víz alatti titkos bejárat</h3><br>A hód családja a hódvárban lakik, amit a tó közepére vagy a part szélére építenek. Ez egy hatalmas ághalom, amit sárral tapasztanak le, hogy a téli hidegben is meleg maradjon. A vár legfontosabb trükkje a bejárat: az mindig a vízszint alatt van. Így a ragadozók nem tudnak bejutni, hiszen nem tudnak a víz alatt közlekedni, a hódok viszont egy gyors merüléssel máris a biztonságos, száraz lakószobájukban teremnek.<br><br>A vár belsejében külön helyiség van az alvásra és a kölykök nevelésére. A hódok nagyon tiszta állatok, a „lakást” rendszeresen takarítják, és az aljzatot puha faforgáccsal bélelik ki.<br><br><h3>A hódok és az ember</h3><br>Magyarország folyói mellől (mint a Duna vagy a Tisza) a 19. században majdnem teljesen eltűntek a hódok, mert értékes szőrméjük miatt vadászták őket. Szerencsére az elmúlt évtizedekben sikeresen visszatelepítették őket, és ma már újra több ezer hód él nálunk.<br><br>Bár néha bosszúságot okoznak a gazdáknak a kidöntött fákkal, jelenlétük nagyon hasznos. A hódok által létrehozott tavakban új életre kel a természet: ritka halak, békák és vízimadarak találnak ott otthonra. Ahol megjelenik a hód, ott az erdő egészségesebb és élettel telibb lesz.</p>"
+},
+// --- A LÁTHATATLAN SEGÍTŐ (GPS) FELADATSOR ---
+{
+  question: "21. Mit jelent a GPS rövidítés magyarul?",
+  type: "single",
+  options: [
+    "Gyors Pontos Segítség", 
+    "Globális Helymeghatározó Rendszer", 
+    "Gépjármű Pálya Segítő", 
+    "Gördülékeny Pálya Szabályozó"
+  ],
+  correct: [1],
+  points: 1,
+  leftImage: "gps.jpg",
+leftText: "<h2>A láthatatlan segítő – A GPS és a műholdak titka</h2><p><br><br>Képzeld el, hogy autóztok egy ismeretlen városban. Bekapcsoljátok a telefont, elindítotok egy alkalmazást, és egy kedves hang pontosan megmondja: „Húsz méter múlva fordulj jobbra!” Honnan tudja az a kis készülék, hogy hol vagytok, és merre kell mennetek? Ehhez egy elképesztő, űrbéli rendszerre, a GPS-re van szükség.<br><br><h3>Mi is az a GPS?</h3><br>A GPS egy rövidítés, az angol Global Positioning System kifejezésből ered, ami magyarul Globális Helymeghatározó Rendszert jelent. Ez a rendszer nem egyetlen gép, hanem egy hatalmas hálózat, amely három fő részből áll: az űrben keringő műholdakból, a földön lévő irányító központokból és a te kezedben lévő vevőkészülékből (például a telefonodból).<br><br>A rendszer „szíve” körülbelül 24-31 műhold, amelyek folyamatosan keringenek a Föld körül, nagyjából 20 ezer kilométeres magasságban. Ez olyan magas, hogy onnan a műholdak szinte az egész bolygót belátják. Úgy száguldanak az űrben, hogy naponta kétszer megkerülik a Földet.<br><br><h3>Hogyan működik? A „égi világítótornyok”</h3><br>A műholdakat elképzelheted úgy, mint a tengeri világítótornyokat, csak ezek nem fényt, hanem rádiójeleket sugároznak. Minden egyes műhold folyamatosan küld egy üzenetet, amiben ez áll: „Én vagyok a 12-es számú műhold, a pontos helyem ez és ez, és az üzenet küldésének pillanatában pontosan ennyi az idő.”<br><br>Amikor a telefonod fogja ezeket a jeleket, egy villámgyors számolásba kezd. Megméri, hogy mennyi idő alatt ért le a jel a műholdtól a földre. Mivel a rádiójelek fénysebességgel haladnak, a telefonod a késésből ki tudja számolni, milyen messze van a műhold. Ahhoz, hogy a készüléked mértani pontossággal megmondja a helyzetedet, legalább négy különböző műhold jelére van szüksége egyszerre.<br><br><h3>A katonai titoktól a mindennapokig</h3><br>A GPS-t eredetileg nem arra tervezték, hogy mi pizzériákat keressünk vele. Az 1970-es években kezdte fejleszteni az Amerikai Egyesült Államok hadserege, mert pontosan akarták tudni, hol járnak a katonáik, a hajóik vagy a repülőik a sivatagban vagy az óceán közepén.<br><br>Sokáig ez egy titkos katonai technológia volt. Később ugyan megengedték a civileknek is a használatát, de szándékosan pontatlanná tették a jelet, hogy csak a katonák lássák a tökéletes pozíciót. Csak 2000-ben döntött úgy az amerikai elnök, hogy mindenki számára elérhetővé teszik a teljes pontosságot. Azóta a GPS teljesen ingyenesen használható bárki számára, akinek van hozzá vevőkészüléke.<br><br><h3>Miért hasznos még a GPS?</h3><br>Bár legtöbbször az útvonaltervezésre használjuk, a GPS sok más területen is nélkülözhetetlen:<br><br>Mentés: Ha valaki eltéved a hegyekben, a mentőcsapatok a GPS-jelek alapján találhatják meg.<br><br>Mezőgazdaság: Vannak olyan modern traktorok, amik GPS segítségével, maguktól, centiméter pontossággal vezetik végig magukat a szántóföldön.<br><br>Tudomány: A kutatók GPS-szel figyelik, hogyan vándorolnak a vadon élő állatok, vagy hogyan mozdulnak el a földrengések idején a kőzetlemezek.<br><br>Időmérés: A GPS műholdakon atomórák vannak, amik a világ legpontosabb órái. Ezek segítségével hangolják össze például a bankok működését vagy az internetes hálózatokat is.<br><br>Láthatod, hogy bár a GPS jelei láthatatlanok, ma már szinte megállna az élet, ha a műholdak egyszer csak elhallgatnának az űrben.</p>"
+},
+{
+  question: "22. Melyik nem része a GPS hálózatnak?",
+  type: "single",
+  options: [
+    "Műholdak az űrben", 
+    "Földi irányító központok", 
+    "A kezedben lévő vevőkészülék", 
+    "Óriási földi antennák a házak tetején"
+  ],
+  correct: [3],
+  points: 1,
+  leftImage: "gps.jpg",
+leftText: "<h2>A láthatatlan segítő – A GPS és a műholdak titka</h2><p><br><br>Képzeld el, hogy autóztok egy ismeretlen városban. Bekapcsoljátok a telefont, elindítotok egy alkalmazást, és egy kedves hang pontosan megmondja: „Húsz méter múlva fordulj jobbra!” Honnan tudja az a kis készülék, hogy hol vagytok, és merre kell mennetek? Ehhez egy elképesztő, űrbéli rendszerre, a GPS-re van szükség.<br><br><h3>Mi is az a GPS?</h3><br>A GPS egy rövidítés, az angol Global Positioning System kifejezésből ered, ami magyarul Globális Helymeghatározó Rendszert jelent. Ez a rendszer nem egyetlen gép, hanem egy hatalmas hálózat, amely három fő részből áll: az űrben keringő műholdakból, a földön lévő irányító központokból és a te kezedben lévő vevőkészülékből (például a telefonodból).<br><br>A rendszer „szíve” körülbelül 24-31 műhold, amelyek folyamatosan keringenek a Föld körül, nagyjából 20 ezer kilométeres magasságban. Ez olyan magas, hogy onnan a műholdak szinte az egész bolygót belátják. Úgy száguldanak az űrben, hogy naponta kétszer megkerülik a Földet.<br><br><h3>Hogyan működik? A „égi világítótornyok”</h3><br>A műholdakat elképzelheted úgy, mint a tengeri világítótornyokat, csak ezek nem fényt, hanem rádiójeleket sugároznak. Minden egyes műhold folyamatosan küld egy üzenetet, amiben ez áll: „Én vagyok a 12-es számú műhold, a pontos helyem ez és ez, és az üzenet küldésének pillanatában pontosan ennyi az idő.”<br><br>Amikor a telefonod fogja ezeket a jeleket, egy villámgyors számolásba kezd. Megméri, hogy mennyi idő alatt ért le a jel a műholdtól a földre. Mivel a rádiójelek fénysebességgel haladnak, a telefonod a késésből ki tudja számolni, milyen messze van a műhold. Ahhoz, hogy a készüléked mértani pontossággal megmondja a helyzetedet, legalább négy különböző műhold jelére van szüksége egyszerre.<br><br><h3>A katonai titoktól a mindennapokig</h3><br>A GPS-t eredetileg nem arra tervezték, hogy mi pizzériákat keressünk vele. Az 1970-es években kezdte fejleszteni az Amerikai Egyesült Államok hadserege, mert pontosan akarták tudni, hol járnak a katonáik, a hajóik vagy a repülőik a sivatagban vagy az óceán közepén.<br><br>Sokáig ez egy titkos katonai technológia volt. Később ugyan megengedték a civileknek is a használatát, de szándékosan pontatlanná tették a jelet, hogy csak a katonák lássák a tökéletes pozíciót. Csak 2000-ben döntött úgy az amerikai elnök, hogy mindenki számára elérhetővé teszik a teljes pontosságot. Azóta a GPS teljesen ingyenesen használható bárki számára, akinek van hozzá vevőkészüléke.<br><br><h3>Miért hasznos még a GPS?</h3><br>Bár legtöbbször az útvonaltervezésre használjuk, a GPS sok más területen is nélkülözhetetlen:<br><br>Mentés: Ha valaki eltéved a hegyekben, a mentőcsapatok a GPS-jelek alapján találhatják meg.<br><br>Mezőgazdaság: Vannak olyan modern traktorok, amik GPS segítségével, maguktól, centiméter pontossággal vezetik végig magukat a szántóföldön.<br><br>Tudomány: A kutatók GPS-szel figyelik, hogyan vándorolnak a vadon élő állatok, vagy hogyan mozdulnak el a földrengések idején a kőzetlemezek.<br><br>Időmérés: A GPS műholdakon atomórák vannak, amik a világ legpontosabb órái. Ezek segítségével hangolják össze például a bankok működését vagy az internetes hálózatokat is.<br><br>Láthatod, hogy bár a GPS jelei láthatatlanok, ma már szinte megállna az élet, ha a műholdak egyszer csak elhallgatnának az űrben.</p>"
+},
+{
+  question: "23. Körülbelül milyen magasságban keringenek a GPS műholdak?",
+  type: "single",
+  options: ["100 km", "1000 km", "20 000 km", "1 millió km"],
+  correct: [2],
+  points: 1,
+  leftImage: "gps.jpg",
+leftText: "<h2>A láthatatlan segítő – A GPS és a műholdak titka</h2><p><br><br>Képzeld el, hogy autóztok egy ismeretlen városban. Bekapcsoljátok a telefont, elindítotok egy alkalmazást, és egy kedves hang pontosan megmondja: „Húsz méter múlva fordulj jobbra!” Honnan tudja az a kis készülék, hogy hol vagytok, és merre kell mennetek? Ehhez egy elképesztő, űrbéli rendszerre, a GPS-re van szükség.<br><br><h3>Mi is az a GPS?</h3><br>A GPS egy rövidítés, az angol Global Positioning System kifejezésből ered, ami magyarul Globális Helymeghatározó Rendszert jelent. Ez a rendszer nem egyetlen gép, hanem egy hatalmas hálózat, amely három fő részből áll: az űrben keringő műholdakból, a földön lévő irányító központokból és a te kezedben lévő vevőkészülékből (például a telefonodból).<br><br>A rendszer „szíve” körülbelül 24-31 műhold, amelyek folyamatosan keringenek a Föld körül, nagyjából 20 ezer kilométeres magasságban. Ez olyan magas, hogy onnan a műholdak szinte az egész bolygót belátják. Úgy száguldanak az űrben, hogy naponta kétszer megkerülik a Földet.<br><br><h3>Hogyan működik? A „égi világítótornyok”</h3><br>A műholdakat elképzelheted úgy, mint a tengeri világítótornyokat, csak ezek nem fényt, hanem rádiójeleket sugároznak. Minden egyes műhold folyamatosan küld egy üzenetet, amiben ez áll: „Én vagyok a 12-es számú műhold, a pontos helyem ez és ez, és az üzenet küldésének pillanatában pontosan ennyi az idő.”<br><br>Amikor a telefonod fogja ezeket a jeleket, egy villámgyors számolásba kezd. Megméri, hogy mennyi idő alatt ért le a jel a műholdtól a földre. Mivel a rádiójelek fénysebességgel haladnak, a telefonod a késésből ki tudja számolni, milyen messze van a műhold. Ahhoz, hogy a készüléked mértani pontossággal megmondja a helyzetedet, legalább négy különböző műhold jelére van szüksége egyszerre.<br><br><h3>A katonai titoktól a mindennapokig</h3><br>A GPS-t eredetileg nem arra tervezték, hogy mi pizzériákat keressünk vele. Az 1970-es években kezdte fejleszteni az Amerikai Egyesült Államok hadserege, mert pontosan akarták tudni, hol járnak a katonáik, a hajóik vagy a repülőik a sivatagban vagy az óceán közepén.<br><br>Sokáig ez egy titkos katonai technológia volt. Később ugyan megengedték a civileknek is a használatát, de szándékosan pontatlanná tették a jelet, hogy csak a katonák lássák a tökéletes pozíciót. Csak 2000-ben döntött úgy az amerikai elnök, hogy mindenki számára elérhetővé teszik a teljes pontosságot. Azóta a GPS teljesen ingyenesen használható bárki számára, akinek van hozzá vevőkészüléke.<br><br><h3>Miért hasznos még a GPS?</h3><br>Bár legtöbbször az útvonaltervezésre használjuk, a GPS sok más területen is nélkülözhetetlen:<br><br>Mentés: Ha valaki eltéved a hegyekben, a mentőcsapatok a GPS-jelek alapján találhatják meg.<br><br>Mezőgazdaság: Vannak olyan modern traktorok, amik GPS segítségével, maguktól, centiméter pontossággal vezetik végig magukat a szántóföldön.<br><br>Tudomány: A kutatók GPS-szel figyelik, hogyan vándorolnak a vadon élő állatok, vagy hogyan mozdulnak el a földrengések idején a kőzetlemezek.<br><br>Időmérés: A GPS műholdakon atomórák vannak, amik a világ legpontosabb órái. Ezek segítségével hangolják össze például a bankok működését vagy az internetes hálózatokat is.<br><br>Láthatod, hogy bár a GPS jelei láthatatlanok, ma már szinte megállna az élet, ha a műholdak egyszer csak elhallgatnának az űrben.</p>"
+},
+{
+  question: "24. Hányszor kerülik meg a műholdak a Földet egyetlen nap alatt?",
+  type: "single",
+  options: ["Egyszer", "Kétszer", "Tízszer", "Óránként egyszer"],
+  correct: [1],
+  points: 1,
+  leftImage: "gps.jpg",
+leftText: "<h2>A láthatatlan segítő – A GPS és a műholdak titka</h2><p><br><br>Képzeld el, hogy autóztok egy ismeretlen városban. Bekapcsoljátok a telefont, elindítotok egy alkalmazást, és egy kedves hang pontosan megmondja: „Húsz méter múlva fordulj jobbra!” Honnan tudja az a kis készülék, hogy hol vagytok, és merre kell mennetek? Ehhez egy elképesztő, űrbéli rendszerre, a GPS-re van szükség.<br><br><h3>Mi is az a GPS?</h3><br>A GPS egy rövidítés, az angol Global Positioning System kifejezésből ered, ami magyarul Globális Helymeghatározó Rendszert jelent. Ez a rendszer nem egyetlen gép, hanem egy hatalmas hálózat, amely három fő részből áll: az űrben keringő műholdakból, a földön lévő irányító központokból és a te kezedben lévő vevőkészülékből (például a telefonodból).<br><br>A rendszer „szíve” körülbelül 24-31 műhold, amelyek folyamatosan keringenek a Föld körül, nagyjából 20 ezer kilométeres magasságban. Ez olyan magas, hogy onnan a műholdak szinte az egész bolygót belátják. Úgy száguldanak az űrben, hogy naponta kétszer megkerülik a Földet.<br><br><h3>Hogyan működik? A „égi világítótornyok”</h3><br>A műholdakat elképzelheted úgy, mint a tengeri világítótornyokat, csak ezek nem fényt, hanem rádiójeleket sugároznak. Minden egyes műhold folyamatosan küld egy üzenetet, amiben ez áll: „Én vagyok a 12-es számú műhold, a pontos helyem ez és ez, és az üzenet küldésének pillanatában pontosan ennyi az idő.”<br><br>Amikor a telefonod fogja ezeket a jeleket, egy villámgyors számolásba kezd. Megméri, hogy mennyi idő alatt ért le a jel a műholdtól a földre. Mivel a rádiójelek fénysebességgel haladnak, a telefonod a késésből ki tudja számolni, milyen messze van a műhold. Ahhoz, hogy a készüléked mértani pontossággal megmondja a helyzetedet, legalább négy különböző műhold jelére van szüksége egyszerre.<br><br><h3>A katonai titoktól a mindennapokig</h3><br>A GPS-t eredetileg nem arra tervezték, hogy mi pizzériákat keressünk vele. Az 1970-es években kezdte fejleszteni az Amerikai Egyesült Államok hadserege, mert pontosan akarták tudni, hol járnak a katonáik, a hajóik vagy a repülőik a sivatagban vagy az óceán közepén.<br><br>Sokáig ez egy titkos katonai technológia volt. Később ugyan megengedték a civileknek is a használatát, de szándékosan pontatlanná tették a jelet, hogy csak a katonák lássák a tökéletes pozíciót. Csak 2000-ben döntött úgy az amerikai elnök, hogy mindenki számára elérhetővé teszik a teljes pontosságot. Azóta a GPS teljesen ingyenesen használható bárki számára, akinek van hozzá vevőkészüléke.<br><br><h3>Miért hasznos még a GPS?</h3><br>Bár legtöbbször az útvonaltervezésre használjuk, a GPS sok más területen is nélkülözhetetlen:<br><br>Mentés: Ha valaki eltéved a hegyekben, a mentőcsapatok a GPS-jelek alapján találhatják meg.<br><br>Mezőgazdaság: Vannak olyan modern traktorok, amik GPS segítségével, maguktól, centiméter pontossággal vezetik végig magukat a szántóföldön.<br><br>Tudomány: A kutatók GPS-szel figyelik, hogyan vándorolnak a vadon élő állatok, vagy hogyan mozdulnak el a földrengések idején a kőzetlemezek.<br><br>Időmérés: A GPS műholdakon atomórák vannak, amik a világ legpontosabb órái. Ezek segítségével hangolják össze például a bankok működését vagy az internetes hálózatokat is.<br><br>Láthatod, hogy bár a GPS jelei láthatatlanok, ma már szinte megállna az élet, ha a műholdak egyszer csak elhallgatnának az űrben.</p>"
+},
+{
+  question: "25. Legalább hány műhold jelére van szükség a pontos helymeghatározáshoz?",
+  type: "single",
+  options: ["Egy", "Kettő", "Három", "Négy"],
+  correct: [3],
+  points: 1,
+  leftImage: "gps.jpg",
+leftText: "<h2>A láthatatlan segítő – A GPS és a műholdak titka</h2><p><br><br>Képzeld el, hogy autóztok egy ismeretlen városban. Bekapcsoljátok a telefont, elindítotok egy alkalmazást, és egy kedves hang pontosan megmondja: „Húsz méter múlva fordulj jobbra!” Honnan tudja az a kis készülék, hogy hol vagytok, és merre kell mennetek? Ehhez egy elképesztő, űrbéli rendszerre, a GPS-re van szükség.<br><br><h3>Mi is az a GPS?</h3><br>A GPS egy rövidítés, az angol Global Positioning System kifejezésből ered, ami magyarul Globális Helymeghatározó Rendszert jelent. Ez a rendszer nem egyetlen gép, hanem egy hatalmas hálózat, amely három fő részből áll: az űrben keringő műholdakból, a földön lévő irányító központokból és a te kezedben lévő vevőkészülékből (például a telefonodból).<br><br>A rendszer „szíve” körülbelül 24-31 műhold, amelyek folyamatosan keringenek a Föld körül, nagyjából 20 ezer kilométeres magasságban. Ez olyan magas, hogy onnan a műholdak szinte az egész bolygót belátják. Úgy száguldanak az űrben, hogy naponta kétszer megkerülik a Földet.<br><br><h3>Hogyan működik? A „égi világítótornyok”</h3><br>A műholdakat elképzelheted úgy, mint a tengeri világítótornyokat, csak ezek nem fényt, hanem rádiójeleket sugároznak. Minden egyes műhold folyamatosan küld egy üzenetet, amiben ez áll: „Én vagyok a 12-es számú műhold, a pontos helyem ez és ez, és az üzenet küldésének pillanatában pontosan ennyi az idő.”<br><br>Amikor a telefonod fogja ezeket a jeleket, egy villámgyors számolásba kezd. Megméri, hogy mennyi idő alatt ért le a jel a műholdtól a földre. Mivel a rádiójelek fénysebességgel haladnak, a telefonod a késésből ki tudja számolni, milyen messze van a műhold. Ahhoz, hogy a készüléked mértani pontossággal megmondja a helyzetedet, legalább négy különböző műhold jelére van szüksége egyszerre.<br><br><h3>A katonai titoktól a mindennapokig</h3><br>A GPS-t eredetileg nem arra tervezték, hogy mi pizzériákat keressünk vele. Az 1970-es években kezdte fejleszteni az Amerikai Egyesült Államok hadserege, mert pontosan akarták tudni, hol járnak a katonáik, a hajóik vagy a repülőik a sivatagban vagy az óceán közepén.<br><br>Sokáig ez egy titkos katonai technológia volt. Később ugyan megengedték a civileknek is a használatát, de szándékosan pontatlanná tették a jelet, hogy csak a katonák lássák a tökéletes pozíciót. Csak 2000-ben döntött úgy az amerikai elnök, hogy mindenki számára elérhetővé teszik a teljes pontosságot. Azóta a GPS teljesen ingyenesen használható bárki számára, akinek van hozzá vevőkészüléke.<br><br><h3>Miért hasznos még a GPS?</h3><br>Bár legtöbbször az útvonaltervezésre használjuk, a GPS sok más területen is nélkülözhetetlen:<br><br>Mentés: Ha valaki eltéved a hegyekben, a mentőcsapatok a GPS-jelek alapján találhatják meg.<br><br>Mezőgazdaság: Vannak olyan modern traktorok, amik GPS segítségével, maguktól, centiméter pontossággal vezetik végig magukat a szántóföldön.<br><br>Tudomány: A kutatók GPS-szel figyelik, hogyan vándorolnak a vadon élő állatok, vagy hogyan mozdulnak el a földrengések idején a kőzetlemezek.<br><br>Időmérés: A GPS műholdakon atomórák vannak, amik a világ legpontosabb órái. Ezek segítségével hangolják össze például a bankok működését vagy az internetes hálózatokat is.<br><br>Láthatod, hogy bár a GPS jelei láthatatlanok, ma már szinte megállna az élet, ha a műholdak egyszer csak elhallgatnának az űrben.</p>"
+},
+{
+  question: "26. Ki kezdte el fejleszteni a GPS-t az 1970-es években?",
+  type: "single",
+  options: [
+    "Egy híres telefontársaság", 
+    "Az amerikai hadsereg", 
+    "Magyar tudósok csoportja", 
+    "Autógyártók szövetsége"
+  ],
+  correct: [1],
+  points: 1,
+  leftImage: "gps.jpg",
+leftText: "<h2>A láthatatlan segítő – A GPS és a műholdak titka</h2><p><br><br>Képzeld el, hogy autóztok egy ismeretlen városban. Bekapcsoljátok a telefont, elindítotok egy alkalmazást, és egy kedves hang pontosan megmondja: „Húsz méter múlva fordulj jobbra!” Honnan tudja az a kis készülék, hogy hol vagytok, és merre kell mennetek? Ehhez egy elképesztő, űrbéli rendszerre, a GPS-re van szükség.<br><br><h3>Mi is az a GPS?</h3><br>A GPS egy rövidítés, az angol Global Positioning System kifejezésből ered, ami magyarul Globális Helymeghatározó Rendszert jelent. Ez a rendszer nem egyetlen gép, hanem egy hatalmas hálózat, amely három fő részből áll: az űrben keringő műholdakból, a földön lévő irányító központokból és a te kezedben lévő vevőkészülékből (például a telefonodból).<br><br>A rendszer „szíve” körülbelül 24-31 műhold, amelyek folyamatosan keringenek a Föld körül, nagyjából 20 ezer kilométeres magasságban. Ez olyan magas, hogy onnan a műholdak szinte az egész bolygót belátják. Úgy száguldanak az űrben, hogy naponta kétszer megkerülik a Földet.<br><br><h3>Hogyan működik? A „égi világítótornyok”</h3><br>A műholdakat elképzelheted úgy, mint a tengeri világítótornyokat, csak ezek nem fényt, hanem rádiójeleket sugároznak. Minden egyes műhold folyamatosan küld egy üzenetet, amiben ez áll: „Én vagyok a 12-es számú műhold, a pontos helyem ez és ez, és az üzenet küldésének pillanatában pontosan ennyi az idő.”<br><br>Amikor a telefonod fogja ezeket a jeleket, egy villámgyors számolásba kezd. Megméri, hogy mennyi idő alatt ért le a jel a műholdtól a földre. Mivel a rádiójelek fénysebességgel haladnak, a telefonod a késésből ki tudja számolni, milyen messze van a műhold. Ahhoz, hogy a készüléked mértani pontossággal megmondja a helyzetedet, legalább négy különböző műhold jelére van szüksége egyszerre.<br><br><h3>A katonai titoktól a mindennapokig</h3><br>A GPS-t eredetileg nem arra tervezték, hogy mi pizzériákat keressünk vele. Az 1970-es években kezdte fejleszteni az Amerikai Egyesült Államok hadserege, mert pontosan akarták tudni, hol járnak a katonáik, a hajóik vagy a repülőik a sivatagban vagy az óceán közepén.<br><br>Sokáig ez egy titkos katonai technológia volt. Később ugyan megengedték a civileknek is a használatát, de szándékosan pontatlanná tették a jelet, hogy csak a katonák lássák a tökéletes pozíciót. Csak 2000-ben döntött úgy az amerikai elnök, hogy mindenki számára elérhetővé teszik a teljes pontosságot. Azóta a GPS teljesen ingyenesen használható bárki számára, akinek van hozzá vevőkészüléke.<br><br><h3>Miért hasznos még a GPS?</h3><br>Bár legtöbbször az útvonaltervezésre használjuk, a GPS sok más területen is nélkülözhetetlen:<br><br>Mentés: Ha valaki eltéved a hegyekben, a mentőcsapatok a GPS-jelek alapján találhatják meg.<br><br>Mezőgazdaság: Vannak olyan modern traktorok, amik GPS segítségével, maguktól, centiméter pontossággal vezetik végig magukat a szántóföldön.<br><br>Tudomány: A kutatók GPS-szel figyelik, hogyan vándorolnak a vadon élő állatok, vagy hogyan mozdulnak el a földrengések idején a kőzetlemezek.<br><br>Időmérés: A GPS műholdakon atomórák vannak, amik a világ legpontosabb órái. Ezek segítségével hangolják össze például a bankok működését vagy az internetes hálózatokat is.<br><br>Láthatod, hogy bár a GPS jelei láthatatlanok, ma már szinte megállna az élet, ha a műholdak egyszer csak elhallgatnának az űrben.</p>"
+},
+{
+  question: "27. Egészítsd ki a mondatokat a GPS történetével kapcsolatban!",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "A GPS-t eleinte  célokra használták.", blanks: [3] },
+    { text: "A civilek számára  -ben tették teljesen pontossá a jelet.", blanks: [3] },
+    { text: "A rendszer használata bárki számára .", blanks: [5] }
+  ],
+  options: [
+    ["mezőgazdasági", "katonai", "vegyipari","tudományos"],
+    ["1970", "2000","1990","2010"],
+    ["ingyenes", "fizetős", "elérhetetlen", "bonyolult"]
+  ],
+  correct: [1, 1, 0],
+  points: 3,
+  leftImage: "gps.jpg",
+leftText: "<h2>A láthatatlan segítő – A GPS és a műholdak titka</h2><p><br><br>Képzeld el, hogy autóztok egy ismeretlen városban. Bekapcsoljátok a telefont, elindítotok egy alkalmazást, és egy kedves hang pontosan megmondja: „Húsz méter múlva fordulj jobbra!” Honnan tudja az a kis készülék, hogy hol vagytok, és merre kell mennetek? Ehhez egy elképesztő, űrbéli rendszerre, a GPS-re van szükség.<br><br><h3>Mi is az a GPS?</h3><br>A GPS egy rövidítés, az angol Global Positioning System kifejezésből ered, ami magyarul Globális Helymeghatározó Rendszert jelent. Ez a rendszer nem egyetlen gép, hanem egy hatalmas hálózat, amely három fő részből áll: az űrben keringő műholdakból, a földön lévő irányító központokból és a te kezedben lévő vevőkészülékből (például a telefonodból).<br><br>A rendszer „szíve” körülbelül 24-31 műhold, amelyek folyamatosan keringenek a Föld körül, nagyjából 20 ezer kilométeres magasságban. Ez olyan magas, hogy onnan a műholdak szinte az egész bolygót belátják. Úgy száguldanak az űrben, hogy naponta kétszer megkerülik a Földet.<br><br><h3>Hogyan működik? A „égi világítótornyok”</h3><br>A műholdakat elképzelheted úgy, mint a tengeri világítótornyokat, csak ezek nem fényt, hanem rádiójeleket sugároznak. Minden egyes műhold folyamatosan küld egy üzenetet, amiben ez áll: „Én vagyok a 12-es számú műhold, a pontos helyem ez és ez, és az üzenet küldésének pillanatában pontosan ennyi az idő.”<br><br>Amikor a telefonod fogja ezeket a jeleket, egy villámgyors számolásba kezd. Megméri, hogy mennyi idő alatt ért le a jel a műholdtól a földre. Mivel a rádiójelek fénysebességgel haladnak, a telefonod a késésből ki tudja számolni, milyen messze van a műhold. Ahhoz, hogy a készüléked mértani pontossággal megmondja a helyzetedet, legalább négy különböző műhold jelére van szüksége egyszerre.<br><br><h3>A katonai titoktól a mindennapokig</h3><br>A GPS-t eredetileg nem arra tervezték, hogy mi pizzériákat keressünk vele. Az 1970-es években kezdte fejleszteni az Amerikai Egyesült Államok hadserege, mert pontosan akarták tudni, hol járnak a katonáik, a hajóik vagy a repülőik a sivatagban vagy az óceán közepén.<br><br>Sokáig ez egy titkos katonai technológia volt. Később ugyan megengedték a civileknek is a használatát, de szándékosan pontatlanná tették a jelet, hogy csak a katonák lássák a tökéletes pozíciót. Csak 2000-ben döntött úgy az amerikai elnök, hogy mindenki számára elérhetővé teszik a teljes pontosságot. Azóta a GPS teljesen ingyenesen használható bárki számára, akinek van hozzá vevőkészüléke.<br><br><h3>Miért hasznos még a GPS?</h3><br>Bár legtöbbször az útvonaltervezésre használjuk, a GPS sok más területen is nélkülözhetetlen:<br><br>Mentés: Ha valaki eltéved a hegyekben, a mentőcsapatok a GPS-jelek alapján találhatják meg.<br><br>Mezőgazdaság: Vannak olyan modern traktorok, amik GPS segítségével, maguktól, centiméter pontossággal vezetik végig magukat a szántóföldön.<br><br>Tudomány: A kutatók GPS-szel figyelik, hogyan vándorolnak a vadon élő állatok, vagy hogyan mozdulnak el a földrengések idején a kőzetlemezek.<br><br>Időmérés: A GPS műholdakon atomórák vannak, amik a világ legpontosabb órái. Ezek segítségével hangolják össze például a bankok működését vagy az internetes hálózatokat is.<br><br>Láthatod, hogy bár a GPS jelei láthatatlanok, ma már szinte megállna az élet, ha a műholdak egyszer csak elhallgatnának az űrben.</p>"
+},
+{
+  question: "28. Mivel mérik a műholdak a hajszálpontos időt?",
+  type: "single",
+  options: [
+    "Mechanikus órákkal", 
+    "Homokórákkal", 
+    "Atomórákkal", 
+    "Napórákkal"
+  ],
+  correct: [2],
+  points: 1,
+  leftImage: "gps.jpg",
+leftText: "<h2>A láthatatlan segítő – A GPS és a műholdak titka</h2><p><br><br>Képzeld el, hogy autóztok egy ismeretlen városban. Bekapcsoljátok a telefont, elindítotok egy alkalmazást, és egy kedves hang pontosan megmondja: „Húsz méter múlva fordulj jobbra!” Honnan tudja az a kis készülék, hogy hol vagytok, és merre kell mennetek? Ehhez egy elképesztő, űrbéli rendszerre, a GPS-re van szükség.<br><br><h3>Mi is az a GPS?</h3><br>A GPS egy rövidítés, az angol Global Positioning System kifejezésből ered, ami magyarul Globális Helymeghatározó Rendszert jelent. Ez a rendszer nem egyetlen gép, hanem egy hatalmas hálózat, amely három fő részből áll: az űrben keringő műholdakból, a földön lévő irányító központokból és a te kezedben lévő vevőkészülékből (például a telefonodból).<br><br>A rendszer „szíve” körülbelül 24-31 műhold, amelyek folyamatosan keringenek a Föld körül, nagyjából 20 ezer kilométeres magasságban. Ez olyan magas, hogy onnan a műholdak szinte az egész bolygót belátják. Úgy száguldanak az űrben, hogy naponta kétszer megkerülik a Földet.<br><br><h3>Hogyan működik? A „égi világítótornyok”</h3><br>A műholdakat elképzelheted úgy, mint a tengeri világítótornyokat, csak ezek nem fényt, hanem rádiójeleket sugároznak. Minden egyes műhold folyamatosan küld egy üzenetet, amiben ez áll: „Én vagyok a 12-es számú műhold, a pontos helyem ez és ez, és az üzenet küldésének pillanatában pontosan ennyi az idő.”<br><br>Amikor a telefonod fogja ezeket a jeleket, egy villámgyors számolásba kezd. Megméri, hogy mennyi idő alatt ért le a jel a műholdtól a földre. Mivel a rádiójelek fénysebességgel haladnak, a telefonod a késésből ki tudja számolni, milyen messze van a műhold. Ahhoz, hogy a készüléked mértani pontossággal megmondja a helyzetedet, legalább négy különböző műhold jelére van szüksége egyszerre.<br><br><h3>A katonai titoktól a mindennapokig</h3><br>A GPS-t eredetileg nem arra tervezték, hogy mi pizzériákat keressünk vele. Az 1970-es években kezdte fejleszteni az Amerikai Egyesült Államok hadserege, mert pontosan akarták tudni, hol járnak a katonáik, a hajóik vagy a repülőik a sivatagban vagy az óceán közepén.<br><br>Sokáig ez egy titkos katonai technológia volt. Később ugyan megengedték a civileknek is a használatát, de szándékosan pontatlanná tették a jelet, hogy csak a katonák lássák a tökéletes pozíciót. Csak 2000-ben döntött úgy az amerikai elnök, hogy mindenki számára elérhetővé teszik a teljes pontosságot. Azóta a GPS teljesen ingyenesen használható bárki számára, akinek van hozzá vevőkészüléke.<br><br><h3>Miért hasznos még a GPS?</h3><br>Bár legtöbbször az útvonaltervezésre használjuk, a GPS sok más területen is nélkülözhetetlen:<br><br>Mentés: Ha valaki eltéved a hegyekben, a mentőcsapatok a GPS-jelek alapján találhatják meg.<br><br>Mezőgazdaság: Vannak olyan modern traktorok, amik GPS segítségével, maguktól, centiméter pontossággal vezetik végig magukat a szántóföldön.<br><br>Tudomány: A kutatók GPS-szel figyelik, hogyan vándorolnak a vadon élő állatok, vagy hogyan mozdulnak el a földrengések idején a kőzetlemezek.<br><br>Időmérés: A GPS műholdakon atomórák vannak, amik a világ legpontosabb órái. Ezek segítségével hangolják össze például a bankok működését vagy az internetes hálózatokat is.<br><br>Láthatod, hogy bár a GPS jelei láthatatlanok, ma már szinte megállna az élet, ha a műholdak egyszer csak elhallgatnának az űrben.</p>"
+},
+{
+  question: "29. Milyen területeken NEM használnak még GPS-t?",
+  type: "single",
+  options: [
+    "Mentőcsapatok keresésnél", 
+    "Önvezető traktoroknál", 
+    "Vadon élő állatok megfigyelésénél", 
+    "Hűtőszekrények hűtésénél"
+  ],
+  correct: [3],
+  points: 1,
+  leftImage: "gps.jpg",
+leftText: "<h2>A láthatatlan segítő – A GPS és a műholdak titka</h2><p><br><br>Képzeld el, hogy autóztok egy ismeretlen városban. Bekapcsoljátok a telefont, elindítotok egy alkalmazást, és egy kedves hang pontosan megmondja: „Húsz méter múlva fordulj jobbra!” Honnan tudja az a kis készülék, hogy hol vagytok, és merre kell mennetek? Ehhez egy elképesztő, űrbéli rendszerre, a GPS-re van szükség.<br><br><h3>Mi is az a GPS?</h3><br>A GPS egy rövidítés, az angol Global Positioning System kifejezésből ered, ami magyarul Globális Helymeghatározó Rendszert jelent. Ez a rendszer nem egyetlen gép, hanem egy hatalmas hálózat, amely három fő részből áll: az űrben keringő műholdakból, a földön lévő irányító központokból és a te kezedben lévő vevőkészülékből (például a telefonodból).<br><br>A rendszer „szíve” körülbelül 24-31 műhold, amelyek folyamatosan keringenek a Föld körül, nagyjából 20 ezer kilométeres magasságban. Ez olyan magas, hogy onnan a műholdak szinte az egész bolygót belátják. Úgy száguldanak az űrben, hogy naponta kétszer megkerülik a Földet.<br><br><h3>Hogyan működik? A „égi világítótornyok”</h3><br>A műholdakat elképzelheted úgy, mint a tengeri világítótornyokat, csak ezek nem fényt, hanem rádiójeleket sugároznak. Minden egyes műhold folyamatosan küld egy üzenetet, amiben ez áll: „Én vagyok a 12-es számú műhold, a pontos helyem ez és ez, és az üzenet küldésének pillanatában pontosan ennyi az idő.”<br><br>Amikor a telefonod fogja ezeket a jeleket, egy villámgyors számolásba kezd. Megméri, hogy mennyi idő alatt ért le a jel a műholdtól a földre. Mivel a rádiójelek fénysebességgel haladnak, a telefonod a késésből ki tudja számolni, milyen messze van a műhold. Ahhoz, hogy a készüléked mértani pontossággal megmondja a helyzetedet, legalább négy különböző műhold jelére van szüksége egyszerre.<br><br><h3>A katonai titoktól a mindennapokig</h3><br>A GPS-t eredetileg nem arra tervezték, hogy mi pizzériákat keressünk vele. Az 1970-es években kezdte fejleszteni az Amerikai Egyesült Államok hadserege, mert pontosan akarták tudni, hol járnak a katonáik, a hajóik vagy a repülőik a sivatagban vagy az óceán közepén.<br><br>Sokáig ez egy titkos katonai technológia volt. Később ugyan megengedték a civileknek is a használatát, de szándékosan pontatlanná tették a jelet, hogy csak a katonák lássák a tökéletes pozíciót. Csak 2000-ben döntött úgy az amerikai elnök, hogy mindenki számára elérhetővé teszik a teljes pontosságot. Azóta a GPS teljesen ingyenesen használható bárki számára, akinek van hozzá vevőkészüléke.<br><br><h3>Miért hasznos még a GPS?</h3><br>Bár legtöbbször az útvonaltervezésre használjuk, a GPS sok más területen is nélkülözhetetlen:<br><br>Mentés: Ha valaki eltéved a hegyekben, a mentőcsapatok a GPS-jelek alapján találhatják meg.<br><br>Mezőgazdaság: Vannak olyan modern traktorok, amik GPS segítségével, maguktól, centiméter pontossággal vezetik végig magukat a szántóföldön.<br><br>Tudomány: A kutatók GPS-szel figyelik, hogyan vándorolnak a vadon élő állatok, vagy hogyan mozdulnak el a földrengések idején a kőzetlemezek.<br><br>Időmérés: A GPS műholdakon atomórák vannak, amik a világ legpontosabb órái. Ezek segítségével hangolják össze például a bankok működését vagy az internetes hálózatokat is.<br><br>Láthatod, hogy bár a GPS jelei láthatatlanok, ma már szinte megállna az élet, ha a műholdak egyszer csak elhallgatnának az űrben.</p>"
+},
+{
+  question: "30. Igaz vagy Hamis állítások a GPS-ről",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "A telefonunk jeleket küld fel a műholdaknak. ", blanks: [7] },
+    { text: "A GPS jelek fénysebességgel haladnak. ", blanks: [5] }
+  ],
+  options: [
+    ["Igaz", "Hamis"],
+    ["Igaz", "Hamis"]
+  ],
+  correct: [1, 0],
+  points: 2,
+  leftImage: "gps.jpg",
+leftText: "<h2>A láthatatlan segítő – A GPS és a műholdak titka</h2><p><br><br>Képzeld el, hogy autóztok egy ismeretlen városban. Bekapcsoljátok a telefont, elindítotok egy alkalmazást, és egy kedves hang pontosan megmondja: „Húsz méter múlva fordulj jobbra!” Honnan tudja az a kis készülék, hogy hol vagytok, és merre kell mennetek? Ehhez egy elképesztő, űrbéli rendszerre, a GPS-re van szükség.<br><br><h3>Mi is az a GPS?</h3><br>A GPS egy rövidítés, az angol Global Positioning System kifejezésből ered, ami magyarul Globális Helymeghatározó Rendszert jelent. Ez a rendszer nem egyetlen gép, hanem egy hatalmas hálózat, amely három fő részből áll: az űrben keringő műholdakból, a földön lévő irányító központokból és a te kezedben lévő vevőkészülékből (például a telefonodból).<br><br>A rendszer „szíve” körülbelül 24-31 műhold, amelyek folyamatosan keringenek a Föld körül, nagyjából 20 ezer kilométeres magasságban. Ez olyan magas, hogy onnan a műholdak szinte az egész bolygót belátják. Úgy száguldanak az űrben, hogy naponta kétszer megkerülik a Földet.<br><br><h3>Hogyan működik? A „égi világítótornyok”</h3><br>A műholdakat elképzelheted úgy, mint a tengeri világítótornyokat, csak ezek nem fényt, hanem rádiójeleket sugároznak. Minden egyes műhold folyamatosan küld egy üzenetet, amiben ez áll: „Én vagyok a 12-es számú műhold, a pontos helyem ez és ez, és az üzenet küldésének pillanatában pontosan ennyi az idő.”<br><br>Amikor a telefonod fogja ezeket a jeleket, egy villámgyors számolásba kezd. Megméri, hogy mennyi idő alatt ért le a jel a műholdtól a földre. Mivel a rádiójelek fénysebességgel haladnak, a telefonod a késésből ki tudja számolni, milyen messze van a műhold. Ahhoz, hogy a készüléked mértani pontossággal megmondja a helyzetedet, legalább négy különböző műhold jelére van szüksége egyszerre.<br><br><h3>A katonai titoktól a mindennapokig</h3><br>A GPS-t eredetileg nem arra tervezték, hogy mi pizzériákat keressünk vele. Az 1970-es években kezdte fejleszteni az Amerikai Egyesült Államok hadserege, mert pontosan akarták tudni, hol járnak a katonáik, a hajóik vagy a repülőik a sivatagban vagy az óceán közepén.<br><br>Sokáig ez egy titkos katonai technológia volt. Később ugyan megengedték a civileknek is a használatát, de szándékosan pontatlanná tették a jelet, hogy csak a katonák lássák a tökéletes pozíciót. Csak 2000-ben döntött úgy az amerikai elnök, hogy mindenki számára elérhetővé teszik a teljes pontosságot. Azóta a GPS teljesen ingyenesen használható bárki számára, akinek van hozzá vevőkészüléke.<br><br><h3>Miért hasznos még a GPS?</h3><br>Bár legtöbbször az útvonaltervezésre használjuk, a GPS sok más területen is nélkülözhetetlen:<br><br>Mentés: Ha valaki eltéved a hegyekben, a mentőcsapatok a GPS-jelek alapján találhatják meg.<br><br>Mezőgazdaság: Vannak olyan modern traktorok, amik GPS segítségével, maguktól, centiméter pontossággal vezetik végig magukat a szántóföldön.<br><br>Tudomány: A kutatók GPS-szel figyelik, hogyan vándorolnak a vadon élő állatok, vagy hogyan mozdulnak el a földrengések idején a kőzetlemezek.<br><br>Időmérés: A GPS műholdakon atomórák vannak, amik a világ legpontosabb órái. Ezek segítségével hangolják össze például a bankok működését vagy az internetes hálózatokat is.<br><br>Láthatod, hogy bár a GPS jelei láthatatlanok, ma már szinte megállna az élet, ha a műholdak egyszer csak elhallgatnának az űrben.</p>"
+}
+
+];
+    
+let currentQuestion = 0;
+
+function initQuiz(){ 
+    buildNavigator(); 
+    buildQuestions(); 
+    showQuestion(0); 
+    // Kezdeti színezés beállítása
+    for(let i=0; i<quizData.length; i++) {
+        updateStatus(i);
+    }
+    document.getElementById("restartBtn").addEventListener("click", () => location.reload());
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const span=document.createElement("span"); 
+        span.className="qn"; 
+        span.id=`nav-${i}`;
+        span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.2rem; margin-bottom: 20px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    if(q.type === "dropdown-multiple-sentences"){
+        let optIndex = 0;
+        q.sentences.forEach(sentence => {
+            const line = document.createElement("div");
+            line.className = "dropdown-sentence";
+            const words = sentence.text.split(" ");
+            words.forEach((word, wi) => {
+                if(sentence.blanks && sentence.blanks.includes(wi)){
+                    const select = document.createElement("select");
+                    select.dataset.optIndex = optIndex;
+                    select.innerHTML = "<option value=''>...</option>";
+                    q.options[optIndex].forEach((opt, oi) => {
+                        const optionElem = document.createElement("option");
+                        optionElem.value = oi;
+                        optionElem.textContent = opt;
+                        select.appendChild(optionElem);
+                    });
+                    select.addEventListener('change', () => updateStatus(i));
+                    line.appendChild(select);
+                    line.appendChild(document.createTextNode(" "));
+                    optIndex++;
+                } else {
+                    line.appendChild(document.createTextNode(word + " "));
+                }
+            });
+            wrap.appendChild(line);
+        });
+    } else if(q.type==="single" || q.type==="multi"){
+        const inputType = q.type === "single" ? "radio" : "checkbox";
+        q.options.forEach((opt,j)=>{
+            const label=document.createElement("label");
+            label.innerHTML=`<input type="${inputType}" name="q${i}" value="${j}"> ${opt}`;
+            label.querySelector("input").addEventListener('change', () => updateStatus(i));
+            wrap.appendChild(label);
+        });
+    }
+    return wrap;
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); 
+    prev.className="btn-prev";
+    prev.textContent="← Előző"; 
+    prev.onclick=()=>showQuestion(i-1); 
+    if(i===0) prev.style.visibility="hidden";
+    
+    const next=document.createElement("button"); 
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Kvíz befejezése" : "Következő →"; 
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function showQuestion(n){
+    currentQuestion=n;
+    document.querySelectorAll(".question").forEach(d=>d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    updateLeftPanel(n);
+    
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function updateLeftPanel(i){
+    const q = quizData[i];
+    const left = document.getElementById("left-panel");
+    left.innerHTML = `<h2>4. osztály</h2>`;
+
+    if(q.leftText){
+        const div = document.createElement("div");
+        div.style.lineHeight = "1.6";
+        div.innerHTML = q.leftText;
+        left.appendChild(div);
+    }
+
+    if(q.leftImage){
+        const img = document.createElement("img");
+        img.src = q.leftImage;
+        img.alt = "Ábra";
+        img.onclick=()=>{ 
+            const overlay = document.getElementById("image-overlay");
+            const overlayImg = document.getElementById("overlay-img");
+            overlayImg.src=img.src; 
+            overlay.style.display="flex"; 
+            setTimeout(() => overlayImg.style.transform = "scale(1)", 10);
+        };
+        left.appendChild(img);
+    }
+}
+
+/**
+ * A navigációs körök színezése a feladat státusza szerint (Piros/Sárga/Zöld)
+ */
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    if(!btn) return;
+    const q = quizData[i];
+    const wrap = document.getElementById(`q${i}`);
+    if(!wrap) return;
+
+    if(q.type === "dropdown-multiple-sentences"){
+        const selects = wrap.querySelectorAll("select");
+        let filled = 0;
+        selects.forEach(s => { if(s.value !== "") filled++; });
+        
+        if(filled === 0) btn.style.backgroundColor = "var(--danger)";
+        else if(filled < selects.length) btn.style.backgroundColor = "var(--warning)";
+        else btn.style.backgroundColor = "var(--success)";
+    } else if(q.type === "single"){
+        const checked = wrap.querySelector("input:checked");
+        btn.style.backgroundColor = checked ? "var(--success)" : "var(--danger)";
+    } else if(q.type === "multi"){
+        const checkedCount = wrap.querySelectorAll("input:checked").length;
+        const requiredCount = q.correct.length; // Elvárt helyes válaszok száma
+        
+        if(checkedCount === 0) {
+            btn.style.backgroundColor = "var(--danger)";
+        } else if(checkedCount < requiredCount) {
+            // Ha van jelölés, de kevesebb, mint amennyi helyes válasz létezik
+            btn.style.backgroundColor = "var(--warning)";
+        } else {
+            // Ha elérte vagy meghaladta az elvárt számot (teljesen kitöltöttnek tekintjük)
+            btn.style.backgroundColor = "var(--success)";
+        }
+    }
+}
+
+function finishQuiz(){
+    let totalScore=0;
+    let maxScore=0;
+    let feedback = "";
+
+    quizData.forEach((q,i)=>{
+        let questionScore=0;
+        let qMax = (q.points || 1);
+        maxScore += qMax;
+        const wrap=document.getElementById(`q${i}`);
+
+        if(q.type==="dropdown-multiple-sentences"){
+            const selects=[...wrap.querySelectorAll("select")];
+            selects.forEach(s=>{
+                const idx=Number(s.dataset.optIndex);
+                if(s.value !== "" && Number(s.value) === q.correct[idx]) questionScore++;
+            });
+        } else if(q.type==="single"){
+            const sel=wrap.querySelector("input:checked");
+            if(sel && Number(sel.value) === q.correct[0]) questionScore=1;
+        } else if(q.type==="multi"){
+            const sel = [...wrap.querySelectorAll(`input:checked`)].map(x=>Number(x.value));
+            const correctSelected = sel.filter(v=>q.correct.includes(v)).length;
+            const incorrectSelected = sel.filter(v=>!q.correct.includes(v)).length;
+            questionScore = correctSelected - incorrectSelected;
+            if(questionScore < 0) questionScore = 0;
+        }
+
+        totalScore += questionScore;
+        feedback += `<div style="padding:12px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+            <span><strong>${i+1}. kérdés:</strong> ${questionScore === qMax ? '✅' : questionScore > 0 ? '⚠️' : '❌'}</span>
+            <span style="font-weight:600;">${questionScore} / ${qMax} pont</span>
+        </div>`;
+    });
+
+    const percent = Math.round((totalScore / maxScore) * 100);
+    let color = percent > 80 ? "var(--success)" : percent > 50 ? "var(--warning)" : "var(--danger)";
+
+    document.getElementById("resultText").innerHTML= `
+        <div style="text-align:center; margin-bottom:30px; padding: 20px; border-radius: 12px; background: #f8fafc;">
+            <div style="font-size: 3.5rem; color: ${color}; font-weight:bold;">${percent}%</div>
+            <div style="font-size: 1.4rem; color: #64748b;">Összpontszám: ${totalScore} / ${maxScore}</div>
+        </div>
+        <div style="background:#ffffff; border: 1px solid #e5e7eb; border-radius:12px; overflow: hidden;">
+            <div style="padding:12px; background:#f1f5f9; font-weight:bold; border-bottom:1px solid #e5e7eb;">Részletes eredmények:</div>
+            ${feedback}
+        </div>
+    `;
+
+    document.getElementById("quiz-container").style.display="none";
+    document.getElementById("resultPage").style.display="block";
+    window.scrollTo(0,0);
+}
+
+function closeOverlay() {
+    const overlay = document.getElementById("image-overlay");
+    const overlayImg = document.getElementById("overlay-img");
+    overlayImg.style.transform = "scale(0.7)";
+    setTimeout(() => overlay.style.display="none", 200);
+}
+
+window.onload = initQuiz;
+</script>
+</body>
+</html>
