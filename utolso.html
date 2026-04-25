@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Szövegértés feladatok</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --bg-color: #f3f4f6;
+        --panel-bg: #ffffff;
+        --text-color: #1f2937;
+        --border-color: #e5e7eb;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+    }
+
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background-color: var(--bg-color); color: var(--text-color); }
+    
+    #quiz-container { 
+        display:flex; flex-direction:row; max-width:1400px; margin: 20px auto; 
+        background: var(--panel-bg); border-radius: var(--radius); 
+        box-shadow: var(--shadow); overflow: hidden; height: calc(100vh - 40px);
+    }
+    
+    #quiz-container .left { 
+        width:40%; border-right:2px solid var(--border-color); 
+        padding: 30px; overflow-y:auto; background-color: #fafafa;
+    }
+    
+    #quiz-container .right { 
+        width:60%; display:flex; flex-direction:column; padding: 30px; overflow-y:hidden;
+    }
+    
+    .quiz-header { 
+        padding-bottom:15px; border-bottom:1px solid var(--border-color); 
+        margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; 
+    }
+    
+    .quiz-questions { overflow-y:auto; flex-grow:1; padding-right: 10px; }
+    
+    #question-navigator { display:flex; flex-wrap:wrap; gap: 8px; }
+    
+    .qn { 
+        width:32px; height:32px; line-height:32px; text-align:center; 
+        border-radius:50%; background-color: var(--danger); color:white; 
+        font-weight: bold; cursor:pointer; transition: 0.2s;
+    }
+    
+    .question { display:none; animation: fadeIn 0.3s; }
+    .question.active { display:block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .question-buttons { display:flex; justify-content:space-between; margin-top:30px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+    
+    button { 
+        padding:12px 24px; border-radius: 8px; border: none; 
+        font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-next { background-color: var(--primary); color: white; }
+    .btn-finish { background-color: var(--success); color: white; }
+    .btn-prev { background-color: #9ca3af; color: white; }
+    
+    #resultPage { display:none; padding:60px; text-align:center; max-width: 800px; margin: 50px auto; background: white; border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    #left-panel h2 { color: var(--primary); margin-top: 0; }
+    #left-panel img { 
+        width: 100%; max-height: auto; object-fit: contain; 
+        display:block; margin: 20px 0; border-radius: 8px;
+        cursor:zoom-in; border: 1px solid var(--border-color);
+    }
+    
+    label { display: flex; align-items: center; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    label:hover { background-color: #f8fafc; border-color: var(--primary); }
+    input { margin-right: 12px; width: 18px; height: 18px; cursor: pointer; }
+    select { padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 1rem; background-color: white; }
+
+    #image-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; }
+    #overlay-img { max-width: 100%; max-height: 90%; border-radius: 8px; cursor: zoom-out; transition: transform 0.3s ease; }
+
+    .dropdown-sentence { margin-bottom: 18px; line-height: 1.8; font-size: 1.1rem; }
+
+    @media (max-width:768px) { 
+        #quiz-container { flex-direction:column; height: auto; margin: 0; border-radius: 0; } 
+        #quiz-container .left, #quiz-container .right { width:100%; height: auto; border-right:none; } 
+    }
+</style>
+</head>
+<body>
+
+<div id="quiz-container">
+  <div class="left" id="left-panel">
+    <h2>4. osztály</h2>
+  </div>
+
+  <div class="right">
+    <div class="quiz-header">
+      <h2 style="margin:0;">Kérdések</h2>
+      <div id="question-navigator"></div>
+    </div>
+    <div class="quiz-questions" id="quiz"></div>
+  </div>
+</div>
+
+<div id="resultPage">
+  <h1 id="resultHeader">Eredmény</h1>
+  <div id="resultText" style="font-size: 1.1rem; line-height: 1.6; margin: 20px 0; text-align: left;"></div>
+  <button id="restartBtn" class="btn-next">Újrakezdés</button>
+</div>
+
+<div id="image-overlay" onclick="closeOverlay()">
+  <img id="overlay-img" src="">
+</div>
+
+<script>
+const quizData = [
+{
+  question: "1. Mi volt Arthur bal oldalán az asztalon?",
+  type: "single",
+  options: ["A kávéscsészéje", "A süteményes doboz", "Az újság", "Az aktatáskája"],
+  correct: [2],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "2. Hogyan jellemezte Arthur a vele szemben ülő férfit? (Két helyes válasz)",
+  type: "multi",
+  options: ["Különc és vad tekintetű", "Teljesen hétköznapi", "Öltönyt viselt", "Rendőri egyenruhában volt"],
+  correct: [1, 2],
+  points: 2,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "3. Mit tett az idegen férfi legelőször, ami meglepte Arthurt?",
+  type: "single",
+  options: ["Kiöntötte a kávét", "Elvette Arthur újságját", "Kivett egy süteményt a dobozból és megette", "Beszélni kezdett Arthurhoz"],
+  correct: [2],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "4. Miért döntött úgy Arthur, hogy nem vesz tudomást a lopásról?",
+  type: "single",
+  options: ["Mert félt a férfitól", "Mert az angol neveltetése nem készítette fel erre a helyzetre", "Mert nem volt éhes", "Mert azt hitte, ismeri a férfit"],
+  correct: [1],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "5. Mit csinált Arthur, miközben próbált uralkodni magán?",
+  type: "single",
+  options: ["A kávéját itta", "A keresztrejtvényét bámulta", "Felállt és elment", "Fütyörészett"],
+  correct: [1],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "6. Miért nem tudott Arthur inni a kávéjából?",
+  type: "single",
+  options: ["Mert a férfi beleivott", "Mert kiömlött", "Mert túl forró volt", "Mert nem volt benne cukor"],
+  correct: [2],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "7. Hogyan reagált Arthur, amikor végül ő is kivett egy süteményt?",
+  type: "single",
+  options: ["Gyorsan bekapta, hogy a férfi ne lássa", "Megfontoltan és látványosan ette meg", "Félbetörte és a férfinak adta a felét", "A táskájába rejtette"],
+  correct: [1],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "8. Igaz vagy Hamis állítások a sütemény-párbajról",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "A dobozban összesen nyolc sütemény volt. ", blanks: [6] },
+    { text: "A férfi dühösen kiabált, amikor Arthur is enni kezdett. ", blanks: [9] },
+    { text: "A doboz végül teljesen kiürült. ", blanks: [5] }
+  ],
+  options: [
+    ["Igaz", "Hamis"],
+    ["Igaz", "Hamis"],
+    ["Igaz", "Hamis"]
+  ],
+  correct: [0, 1, 0],
+  points: 3,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "9. Mi történt a legvégén, amikor a doboz kiürült?",
+  type: "single",
+  options: ["A férfi bocsánatot kért", "A férfi felállt és elment", "Összevesztek a számlán", "Fenchurch kifizette a süteményt"],
+  correct: [1],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "10. Mit talált Arthur az újságja alatt, miután a férfi távozott?",
+  type: "single",
+  options: ["Egy búcsúlevelet", "A saját, bontatlan süteményes dobozát", "Pénzt a süteményekért", "A vonatjegyét"],
+  correct: [1],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "11. Következtethetően mi történt valójában?",
+  type: "single",
+  options: ["A férfi ellopta Arthur süteményét, majd visszacsempészte", "Arthur a férfi süteményét ette meg, azt hívén, hogy a sajátja", "A pincér két dobozt hozott véletlenül", "Arthur álmodta az egészet"],
+  correct: [1],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "12. Milyen történelmi alakhoz hasonlítja Arthur a saját kitartását?",
+  type: "single",
+  options: ["Viktória királynőhöz", "Oroszlánszívű Richárdhoz", "V. Henrikhez", "Churchillhez"],
+  correct: [2],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`	
+},
+{
+  question: "13. Miért volt Arthur számára egyre nehezebb megszólalni?",
+  type: "single",
+  options: ["Mert elment a hangja", "Mert a feszültség miatt nem talált megfelelő szavakat", "Mert nem akarta megzavarni a férfit", "Mert teli volt a szája"],
+  correct: [1],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "14. Hogyan reagált Fenchurch a történet csattanójára?",
+  type: "single",
+  options: ["Sajnálkozott Arthurnak", "Megijedt a férfitól", "Nevetve hátradőlt a fűben", "Nem hitte el a történetet"],
+  correct: [2],
+  points: 1,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+{
+  question: "15. Mely szavak írják le a legjobban az asztalnál kialakult hangulatot? (Több válasz)",
+  type: "multi",
+  options: ["Barátságos csevegés", "Szikrázó levegő", "Feszültség", "Vidám falatozás"],
+  correct: [1, 2],
+  points: 2,
+  leftImage: "keksz.jpg",
+  leftText: `<h2>Douglas Adams: Viszlát és kösz a halakat!</h2><p><br>részlet<br><br>- Most hadd mondjam el a szituációt. Én ülök az asztalnál. Bal oldalamon az újság. Jobbomon egy
+csésze kávé. Az asztal közepén egy doboz sütemény.<br>- Tökéletesen látom.<br>- Amit nem látsz - mondta Arthur -, mert még nem említettem, az a fickó, aki már az asztalnál ült,szemben velem.<br>- Hogy nézett ki?<br>- Teljesen hétköznapi. Aktatáska. Öltöny. Nem úgy nézett ki - mondta Arthur -, mint aki bármi vad dologra képes.<br>- Ó. Ismerem ezt a típust. Mit csinált?<br>- A következőket: áthajolt az asztalon, megfogta a süteményes dobozt, kinyitotta, kivett egy süteményt és...<br>- Micsoda?<br>- Megette.<br>- Micsoda?<br>- Megette.<br>Fenchurch meglepetten nézett rá.<br>- És te mi a fenét csináltál?<br>- Nos, abban a helyzetben ugyanazt tettem, amit bármelyik erős és határozott angol férfi tett volna.<br>Arra kényszerültem - mondta Arthur -, hogy ne vegyek róla tudomást.<br>- Mit? Miért?<br>- Nos, ez nem egy olyan dolog, amire felkészülhetsz, ugye? Önvizsgálatot tartottam és felfedeztem, hogy sem a nevelésem, sem a tapasztalataim, sem az ősi ösztöneim nem mondják meg, hogy hogyan reagáljak, amikor valaki igazán egyszerűen, nyugodtan, pontosan velem szemben ülve lopkodja a süteményemet.<br>- Nos, talán... - Fenchurch végiggondolta. - Azt kell mondanom, én sem vagyok biztos benne, hogy mit tettem volna. Nos, mi történt?<br>- Mérgesen a keresztrejtvényemet bámultam. Egy egyszerű sort sem tudtam megfejteni, egy korty kávét sem tudtam meginni - mert túl meleg volt, szóval semmit sem tudtam tenni. Végül összeszedtem magam és kivettem egy süteményt, és nagyon erősen megpróbáltam nem észrevenni - tette hozzá - azt, hogy a doboz valamilyen csoda folytán már nyitva volt.<br>- De így éppen azt tetted, amit kellett.<br>- Úgy-ahogy, igen. Megettem a süteményt. Igen megfontoltan és látványosan ettem, így nem lehetett kétsége afelől, hogy mit csinálok. És amikor én ettem - mondta Arthur - a férfi abbahagyta az evést.<br>- Mit csinált?<br>- Vett még egy süteményt - mondta Arthur. - Ez történt. Vett még egy süteményt és megette.<br>Higgadtan. Megette és kész.<br>Fenchurch kényelmetlenül megmoccant.<br>- És a probléma az volt - mondta Arthur -, hogy mivel nem mondtam semmit először, így valahogy még nehezebb volt előhozni a dolgot másodjára. Te mit mondtál volna? „Bocsásson meg, de nem tudta a figyelmemet elkerülni az, hogy...” Nem megy. Így hát nem vettem róla tudomást, sokkal nyomatékosabban, mint azelőtt.<br>- Ember...<br>- Bámultam a keresztrejtvényt, ismét semmit sem haladtam vele, és olyan lelkierőt mutatva, amit V.Henrik tett Szent.Crispin napján...<br>- Micsoda?<br>- Visszatérek a történetemhez - mondta Arthur. -Vettem egy másik süteményt. És egy pillanatra találkozott a tekintetünk.<br>- Mint most?<br>- Nem, nem egészen. De találkozott. Csak egy pillanatra. És mindketten elkaptuk a pillantásunkat. De én vagyok a megmondhatója - mondta Arthur -, hogy egy kis feszültség volt az asztal felett abban a percben. A levegő kicsit szikrázott.<br>- El tudom képzelni. - És így megettük az egész dobozzal. Én vettem egyet, majd ő, én, ő...<br>- Az egész dobozzal?<br>- Nos, nyolc sütemény volt a dobozban, de majdnem beleőszültem, mire elfogyott az összes. Még a gladiátoroknak is nehéz perceket okozott volna.<br>- A gladiátoroknak - mondta Fenchurch - a napon kellett volna ezt csinálni. Fizikálisan sokkal fárasztóbb.<br>- Ez történt. Nos, amikor az üres doboz közöttünk feküdt, a férfi végül felállt, bár ezzel a legrosszabbat tette, és elment. Én persze megkönnyebbülten felsóhajtottam. Ezután a vonatomat egy vagy két pillanattal később bemondták, így megittam a kávémat, összehajtottam az újságot, és az újság alatt...<br>- Igen?<br>- Ott volt az én süteményem.<br>- Mi? - mondta Fenchurch. - Micsoda?<br>- Így igaz.<br>- Nem! - Fenchurch levegőért kapkodott és nevetve hátradobta magát a füvön. Majd felült. <br>...</p>`
+},
+
+{
+  question: "16. Mit kell tenned legelőször, mielőtt elkezdenél válaszolni egy kérdésre?",
+  type: "single",
+  options: [
+    "Azonnal rákattintok az első szimpatikus válaszra.",
+    "Alaposan végigolvasom a kérdést és az összes választ.",
+    "Megkérdezem a padtársamat, ő mit gondol.",
+    "Keresem a legnehezebb szót a szövegben."
+  ],
+  correct: [1],
+  points: 1,
+  leftImage: "",
+  leftText: `<h2>Kedves Negyedikesek!</h2><br><br>Elérkeztünk az utolsó feladatsorhoz!<br><br>Hosszú utat tettetek meg ebben a tanévben, és rengeteg érdekes kérdésen rágtátok át magatokat. Ezzel a gyakorlással felkészítettétek magatokat a legfontosabb küldetésre: a közelgő kompetenciamérésre.<br><br>Ne feledjétek:<br><br>A legfontosabb a nyugalom.<br><br>Olvassatok el mindent kétszer.<br><br>Higgyetek magatokban, mert ügyesek vagytok és felkészültetek!<br><br>Most már jöhet az éles megmérettetés, mi pedig nagyon szurkolunk nektek! Mutassátok meg, mit tudtok!<br><br>Hajrá, menni fog!</p>`
+},
+{
+  question: "17. Mit csinálj, ha nem értesz egy technikai utasítást a képernyőn?",
+  type: "single",
+  options: [
+    "Csöndben maradok és várok.",
+    "Csendben felteszem a kezem, és megvárom a tanárt.",
+    "Hangosan felkiáltok a teremben.",
+    "Körülnézek, hogy a többiek mit csinálnak."
+  ],
+  correct: [1],
+  points: 1,
+  leftImage: "",
+  leftText: `<h2>Kedves Negyedikesek!</h2><br><br>Elérkeztünk az utolsó feladatsorhoz!<br><br>Hosszú utat tettetek meg ebben a tanévben, és rengeteg érdekes kérdésen rágtátok át magatokat. Ezzel a gyakorlással felkészítettétek magatokat a legfontosabb küldetésre: a közelgő kompetenciamérésre.<br><br>Ne feledjétek:<br><br>A legfontosabb a nyugalom.<br><br>Olvassatok el mindent kétszer.<br><br>Higgyetek magatokban, mert ügyesek vagytok és felkészültetek!<br><br>Most már jöhet az éles megmérettetés, mi pedig nagyon szurkolunk nektek! Mutassátok meg, mit tudtok!<br><br>Hajrá, menni fog!</p>`
+},
+{
+  question: "18. Szabad-e beszélni a többiekkel a mérés alatt?",
+  type: "single",
+  options: [
+    "Igen, ha csak suttogok.",
+    "Nem, végig csendben, egyedül kell dolgozni.",
+    "Igen, ha segíteni akarok a barátomnak.",
+    "Csak akkor, ha már kész vagyok."
+  ],
+  correct: [1],
+  points: 1,
+  leftImage: "",
+  leftText: `<h2>Kedves Negyedikesek!</h2><br><br>Elérkeztünk az utolsó feladatsorhoz!<br><br>Hosszú utat tettetek meg ebben a tanévben, és rengeteg érdekes kérdésen rágtátok át magatokat. Ezzel a gyakorlással felkészítettétek magatokat a legfontosabb küldetésre: a közelgő kompetenciamérésre.<br><br>Ne feledjétek:<br><br>A legfontosabb a nyugalom.<br><br>Olvassatok el mindent kétszer.<br><br>Higgyetek magatokban, mert ügyesek vagytok és felkészültetek!<br><br>Most már jöhet az éles megmérettetés, mi pedig nagyon szurkolunk nektek! Mutassátok meg, mit tudtok!<br><br>Hajrá, menni fog!</p>`
+},
+{
+  question: "19. Mi a teendő, ha kész vagy, de még maradt időd?",
+  type: "single",
+  options: [
+    "Azonnal beadom és elkezdek pakolni.",
+    "Még egyszer, alaposan átnézem a válaszaimat.",
+    "Rajzolgatni kezdek a papíromra.",
+    "Jelzek a barátomnak, hogy végeztem."
+  ],
+  correct: [1],
+  points: 1,
+  leftImage: "",
+  leftText: `<h2>Kedves Negyedikesek!</h2><br><br>Elérkeztünk az utolsó feladatsorhoz!<br><br>Hosszú utat tettetek meg ebben a tanévben, és rengeteg érdekes kérdésen rágtátok át magatokat. Ezzel a gyakorlással felkészítettétek magatokat a legfontosabb küldetésre: a közelgő kompetenciamérésre.<br><br>Ne feledjétek:<br><br>A legfontosabb a nyugalom.<br><br>Olvassatok el mindent kétszer.<br><br>Higgyetek magatokban, mert ügyesek vagytok és felkészültetek!<br><br>Most már jöhet az éles megmérettetés, mi pedig nagyon szurkolunk nektek! Mutassátok meg, mit tudtok!<br><br>Hajrá, menni fog!</p>`
+},
+{
+  question: "20. Igazak vagy hamisak az alábbi állítások a mérésről?",
+  type: "dropdown-multiple-sentences",
+  sentences: [
+    { text: "A mérés alatt szabad jelentkezni, ha kérdésem van. ", blanks: [8] },
+    { text: "Ha elrontottam egy választ, már nem javíthatom ki. ", blanks: [8] },
+    { text: "A nehéz kérdéseket érdemes a végére hagyni. ", blanks: [7] }
+  ],
+  options: [
+    ["Igaz", "Hamis"],
+    ["Igaz", "Hamis"],
+    ["Igaz", "Hamis"]
+  ],
+  correct: [0, 1, 0],
+  points: 3,
+  leftImage: "",
+  leftText: `<h2>Kedves Negyedikesek!</h2><br><br>Elérkeztünk az utolsó feladatsorhoz!<br><br>Hosszú utat tettetek meg ebben a tanévben, és rengeteg érdekes kérdésen rágtátok át magatokat. Ezzel a gyakorlással felkészítettétek magatokat a legfontosabb küldetésre: a közelgő kompetenciamérésre.<br><br>Ne feledjétek:<br><br>A legfontosabb a nyugalom.<br><br>Olvassatok el mindent kétszer.<br><br>Higgyetek magatokban, mert ügyesek vagytok és felkészültetek!<br><br>Most már jöhet az éles megmérettetés, mi pedig nagyon szurkolunk nektek! Mutassátok meg, mit tudtok!<br><br>Hajrá, menni fog!</p>`
+}
+];    
+let currentQuestion = 0;
+
+function initQuiz(){ 
+    buildNavigator(); 
+    buildQuestions(); 
+    showQuestion(0); 
+    // Kezdeti színezés beállítása
+    for(let i=0; i<quizData.length; i++) {
+        updateStatus(i);
+    }
+    document.getElementById("restartBtn").addEventListener("click", () => location.reload());
+}
+
+function buildNavigator(){
+    const nav=document.getElementById("question-navigator"); nav.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const span=document.createElement("span"); 
+        span.className="qn"; 
+        span.id=`nav-${i}`;
+        span.innerText=i+1;
+        span.onclick=()=>showQuestion(i);
+        nav.appendChild(span);
+    });
+}
+
+function buildQuestions(){
+    const quiz=document.getElementById("quiz"); quiz.innerHTML="";
+    quizData.forEach((q,i)=>{
+        const div=document.createElement("div"); div.className="question"; div.id=`q${i}`;
+        div.innerHTML=`<div style="font-size: 1.2rem; margin-bottom: 20px; font-weight:bold;">${q.question}</div>`;
+        div.appendChild(buildInputs(q,i));
+        div.appendChild(buildButtons(i));
+        quiz.appendChild(div);
+    });
+}
+
+function buildInputs(q,i){
+    const wrap=document.createElement("div");
+    if(q.type === "dropdown-multiple-sentences"){
+        let optIndex = 0;
+        q.sentences.forEach(sentence => {
+            const line = document.createElement("div");
+            line.className = "dropdown-sentence";
+            const words = sentence.text.split(" ");
+            words.forEach((word, wi) => {
+                if(sentence.blanks && sentence.blanks.includes(wi)){
+                    const select = document.createElement("select");
+                    select.dataset.optIndex = optIndex;
+                    select.innerHTML = "<option value=''>...</option>";
+                    q.options[optIndex].forEach((opt, oi) => {
+                        const optionElem = document.createElement("option");
+                        optionElem.value = oi;
+                        optionElem.textContent = opt;
+                        select.appendChild(optionElem);
+                    });
+                    select.addEventListener('change', () => updateStatus(i));
+                    line.appendChild(select);
+                    line.appendChild(document.createTextNode(" "));
+                    optIndex++;
+                } else {
+                    line.appendChild(document.createTextNode(word + " "));
+                }
+            });
+            wrap.appendChild(line);
+        });
+    } else if(q.type==="single" || q.type==="multi"){
+        const inputType = q.type === "single" ? "radio" : "checkbox";
+        q.options.forEach((opt,j)=>{
+            const label=document.createElement("label");
+            label.innerHTML=`<input type="${inputType}" name="q${i}" value="${j}"> ${opt}`;
+            label.querySelector("input").addEventListener('change', () => updateStatus(i));
+            wrap.appendChild(label);
+        });
+    }
+    return wrap;
+}
+
+function buildButtons(i){
+    const div=document.createElement("div"); div.className="question-buttons";
+    const prev=document.createElement("button"); 
+    prev.className="btn-prev";
+    prev.textContent="← Előző"; 
+    prev.onclick=()=>showQuestion(i-1); 
+    if(i===0) prev.style.visibility="hidden";
+    
+    const next=document.createElement("button"); 
+    const isLast = i === quizData.length-1;
+    next.className = isLast ? "btn-finish" : "btn-next";
+    next.textContent = isLast ? "Kvíz befejezése" : "Következő →"; 
+    next.onclick=()=> isLast ? finishQuiz() : showQuestion(i+1);
+    
+    div.appendChild(prev); div.appendChild(next); return div;
+}
+
+function showQuestion(n){
+    currentQuestion=n;
+    document.querySelectorAll(".question").forEach(d=>d.classList.remove("active"));
+    document.getElementById(`q${n}`).classList.add("active");
+    updateLeftPanel(n);
+    
+    document.querySelectorAll(".qn").forEach(nav => nav.style.boxShadow = "none");
+    document.getElementById(`nav-${n}`).style.boxShadow = "0 0 0 3px var(--primary)";
+}
+
+function updateLeftPanel(i){
+    const q = quizData[i];
+    const left = document.getElementById("left-panel");
+    left.innerHTML = `<h2>4. osztály</h2>`;
+
+    if(q.leftText){
+        const div = document.createElement("div");
+        div.style.lineHeight = "1.6";
+        div.innerHTML = q.leftText;
+        left.appendChild(div);
+    }
+
+    if(q.leftImage){
+        const img = document.createElement("img");
+        img.src = q.leftImage;
+        img.alt = "Ábra";
+        img.onclick=()=>{ 
+            const overlay = document.getElementById("image-overlay");
+            const overlayImg = document.getElementById("overlay-img");
+            overlayImg.src=img.src; 
+            overlay.style.display="flex"; 
+            setTimeout(() => overlayImg.style.transform = "scale(1)", 10);
+        };
+        left.appendChild(img);
+    }
+}
+
+/**
+ * A navigációs körök színezése a feladat státusza szerint (Piros/Sárga/Zöld)
+ */
+function updateStatus(i){
+    const btn = document.getElementById(`nav-${i}`);
+    if(!btn) return;
+    const q = quizData[i];
+    const wrap = document.getElementById(`q${i}`);
+    if(!wrap) return;
+
+    if(q.type === "dropdown-multiple-sentences"){
+        const selects = wrap.querySelectorAll("select");
+        let filled = 0;
+        selects.forEach(s => { if(s.value !== "") filled++; });
+        
+        if(filled === 0) btn.style.backgroundColor = "var(--danger)";
+        else if(filled < selects.length) btn.style.backgroundColor = "var(--warning)";
+        else btn.style.backgroundColor = "var(--success)";
+    } else if(q.type === "single"){
+        const checked = wrap.querySelector("input:checked");
+        btn.style.backgroundColor = checked ? "var(--success)" : "var(--danger)";
+    } else if(q.type === "multi"){
+        const checkedCount = wrap.querySelectorAll("input:checked").length;
+        const requiredCount = q.correct.length; // Elvárt helyes válaszok száma
+        
+        if(checkedCount === 0) {
+            btn.style.backgroundColor = "var(--danger)";
+        } else if(checkedCount < requiredCount) {
+            // Ha van jelölés, de kevesebb, mint amennyi helyes válasz létezik
+            btn.style.backgroundColor = "var(--warning)";
+        } else {
+            // Ha elérte vagy meghaladta az elvárt számot (teljesen kitöltöttnek tekintjük)
+            btn.style.backgroundColor = "var(--success)";
+        }
+    }
+}
+
+function finishQuiz(){
+    let totalScore=0;
+    let maxScore=0;
+    let feedback = "";
+
+    quizData.forEach((q,i)=>{
+        let questionScore=0;
+        let qMax = (q.points || 1);
+        maxScore += qMax;
+        const wrap=document.getElementById(`q${i}`);
+
+        if(q.type==="dropdown-multiple-sentences"){
+            const selects=[...wrap.querySelectorAll("select")];
+            selects.forEach(s=>{
+                const idx=Number(s.dataset.optIndex);
+                if(s.value !== "" && Number(s.value) === q.correct[idx]) questionScore++;
+            });
+        } else if(q.type==="single"){
+            const sel=wrap.querySelector("input:checked");
+            if(sel && Number(sel.value) === q.correct[0]) questionScore=1;
+        } else if(q.type==="multi"){
+            const sel = [...wrap.querySelectorAll(`input:checked`)].map(x=>Number(x.value));
+            const correctSelected = sel.filter(v=>q.correct.includes(v)).length;
+            const incorrectSelected = sel.filter(v=>!q.correct.includes(v)).length;
+            questionScore = correctSelected - incorrectSelected;
+            if(questionScore < 0) questionScore = 0;
+        }
+
+        totalScore += questionScore;
+        feedback += `<div style="padding:12px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+            <span><strong>${i+1}. kérdés:</strong> ${questionScore === qMax ? '✅' : questionScore > 0 ? '⚠️' : '❌'}</span>
+            <span style="font-weight:600;">${questionScore} / ${qMax} pont</span>
+        </div>`;
+    });
+
+    const percent = Math.round((totalScore / maxScore) * 100);
+    let color = percent > 80 ? "var(--success)" : percent > 50 ? "var(--warning)" : "var(--danger)";
+
+    document.getElementById("resultText").innerHTML= `
+        <div style="text-align:center; margin-bottom:30px; padding: 20px; border-radius: 12px; background: #f8fafc;">
+            <div style="font-size: 3.5rem; color: ${color}; font-weight:bold;">${percent}%</div>
+            <div style="font-size: 1.4rem; color: #64748b;">Összpontszám: ${totalScore} / ${maxScore}</div>
+        </div>
+        <div style="background:#ffffff; border: 1px solid #e5e7eb; border-radius:12px; overflow: hidden;">
+            <div style="padding:12px; background:#f1f5f9; font-weight:bold; border-bottom:1px solid #e5e7eb;">Részletes eredmények:</div>
+            ${feedback}
+        </div>
+    `;
+
+    document.getElementById("quiz-container").style.display="none";
+    document.getElementById("resultPage").style.display="block";
+    window.scrollTo(0,0);
+}
+
+function closeOverlay() {
+    const overlay = document.getElementById("image-overlay");
+    const overlayImg = document.getElementById("overlay-img");
+    overlayImg.style.transform = "scale(0.7)";
+    setTimeout(() => overlay.style.display="none", 200);
+}
+
+window.onload = initQuiz;
+</script>
+</body>
+</html>
